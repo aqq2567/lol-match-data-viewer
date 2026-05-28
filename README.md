@@ -10,23 +10,19 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 
-<p align="center">
-  通过 LCU API 拉取对战记录，无需第三方 API Key。<br>
-  提供 34 项基础数据指标的多维度排名，支持装备 / 海克斯热力图、高阶聚合指标分析。
-</p>
+<p align="center">通过 LCU API 拉取对战记录，无需第三方 API Key。</p>
 
-# 1. 功能概览
+# 1. 功能
 
 ## 1.1 战绩列表
 
-- 分页拉取 LCU 对战记录（匹配模式支持翻页，其他模式全量拉取）
-- 每场对局展示：英雄头像、KDA、装备、符文、召唤师技能、段位、游戏模式
-- 左侧面板：胜率统计、常用英雄、KDA 趋势、近期队友 / 对手分析
-- 勾选多场对局后可跳转数据分析页
+分页拉取 LCU 对战记录，展示 KDA、装备、符文、召唤师技能、段位、游戏模式。左侧面板提供胜率、常用英雄、KDA 趋势和队友/对手统计。
 
-## 1.2 数据分析（AnalysisView）
+## 1.2 数据分析
 
-### 基础数据 — 34 个指标，领奖台 + 排名表
+从勾选的多场对局中按指标聚合排名，各指标展示前三名和完整排名表。
+
+**基础数据（34 项）：**
 
 | 类别 | 指标 |
 |------|------|
@@ -37,31 +33,21 @@
 | 视野 | 视野得分、插眼、排眼 |
 | 控制 | 控制敌人时间、受控时间 |
 | 目标 | 推塔、对塔伤害、破水晶 |
-| 首杀 / 首塔 | 一血、一塔 |
+| 首杀/首塔 | 一血、一塔 |
 | 多杀 | 双杀、三杀、四杀、五杀 |
 | 评分 | 战斗评分 |
-| 装备 | 全局热门装备 TOP10 + 各玩家最爱装备（悬浮查看购买者） |
-| 海克斯 | 全局热门海克斯 TOP10 + 各玩家最爱海克斯（悬浮查看选择者） |
+| 装备 | 各场对局出装汇总，按出现频次排名 |
+| 海克斯 | 斗魂竞技场/海克斯大乱斗增幅统计 |
 
-### 高阶数据 — 聚合计算指标，首末名对比
+**高阶数据：**
 
 | 指标 | 计算方式 |
 |------|----------|
-| 伤害 / 经济 | 总伤害 ÷ 总经济（伤害转化效率） |
+| 伤害/经济 | 总伤害 / 总经济 |
 
-### 交互特性
+### 1.3 对局详情
 
-- 侧边栏折叠目录（基础数据 / 高阶数据）
-- 第 1 名领奖台支持自定义皇冠称号（如死亡最多 →「沙包」）
-- 高阶数据首末名支持自定义标签（如伤害 / 经济 →「高效」「低效」）
-- 排名表默认展示 10 名玩家，超出滚轮滚动
-- 鼠标悬浮查看详情（KDA、胜率、击杀 / 死亡 / 助攻）
-
-## 1.3 对局详情
-
-- 两队阵容展示：英雄头像、KDA、装备、符文、召唤师技能、段位
-- 两队统计数据：击杀参与率、伤害占比、承伤占比、经济占比
-- 伤害最高 / 承伤最高玩家高亮标识
+展示两队阵容、装备、符文、召唤师技能，以及击杀参与率、伤害占比、承伤占比、经济占比。
 
 # 2. 技术栈
 
@@ -69,127 +55,116 @@
 |---|---|
 | 框架 | Electron 34 + electron-vite |
 | 前端 | Vue 3 (Composition API) + Pinia + Vue Router |
-| UI 组件库 | Naive UI |
+| UI | Naive UI |
 | 样式 | Less |
-| HTTP | Axios（HTTPS 自签名证书处理） |
+| HTTP | Axios（HTTPS 自签名证书） |
 | 构建 | Vite + TypeScript |
 
 # 3. 项目结构
 
 ```
 src/
-├── main/                          # 主进程（API 接入层）
-│   ├── index.ts                   # 应用入口 + 生命周期
+├── main/                          # 主进程
+│   ├── index.ts                   # 入口 + 生命周期
 │   ├── lcu/
-│   │   ├── client.ts              # LCU 连接发现 + HTTP 客户端
-│   │   └── extractor.ts           # LCU 原始数据 → App 类型转换
+│   │   ├── client.ts              # LCU 连接发现 + HTTP 封装
+│   │   └── extractor.ts           # 原始数据转换
 │   ├── ipc/
-│   │   └── lcu-handlers.ts        # IPC 处理器（lcu:* channel）
+│   │   └── lcu-handlers.ts        # IPC handler
 │   └── utils/
 │       ├── logger.ts              # 文件日志（按日轮转）
-│       └── asset-proxy.ts         # lcu-asset:// 自定义协议代理
+│       └── asset-proxy.ts         # lcu-asset:// 协议代理
 │
-├── preload/                       # Preload 脚本
-│   └── index.ts                   # contextBridge 暴露 lcuApi
+├── preload/
+│   └── index.ts                   # contextBridge
 │
-├── shared/                        # 共享层（主进程 + 渲染进程共用）
+├── shared/                        # 主/渲染进程共享
 │   ├── types/
-│   │   ├── lcu-api.ts             # LCU 原始 API 响应类型
-│   │   └── app.ts                 # 应用层数据类型
+│   │   ├── lcu-api.ts             # LCU API 原始类型
+│   │   └── app.ts                 # App 层类型
 │   └── utils/
-│       ├── analysis.ts            # 纯函数分析算法
-│       └── mappings.ts            # 常量映射（队列、装备排除列表等）
+│       ├── analysis.ts            # 分析算法
+│       └── mappings.ts            # 常量映射
 │
-└── renderer/                      # 渲染进程（前端界面层）
+└── renderer/                      # 渲染进程
     └── src/
-        ├── views/                 # 页面视图
-        │   ├── MatchList.vue      # 战绩列表
-        │   ├── AnalysisView.vue   # 数据分析
-        │   ├── GameDetail.vue     # 对局详情
-        │   └── Panel.vue          # 面板容器
+        ├── views/                 # 页面
+        │   ├── MatchList.vue
+        │   ├── AnalysisView.vue
+        │   ├── GameDetail.vue
+        │   └── Panel.vue
         ├── components/            # 组件
-        │   ├── match-history/     # 战绩卡片 + 统计面板
-        │   ├── widgets/           # 通用小组件（英雄/装备/符文/海克斯图标）
-        │   ├── sidebar/           # 侧边栏
-        │   └── title-bar/         # 标题栏
-        ├── stores/                # Pinia 状态管理
-        │   └── game-data.ts       # 游戏基础数据缓存
-        ├── router/                # Vue Router 路由配置
-        └── utils/                 # 前端工具函数
+        │   ├── match-history/
+        │   ├── widgets/
+        │   ├── sidebar/
+        │   └── title-bar/
+        ├── stores/                # Pinia
+        ├── router/
+        └── utils/
 ```
 
 # 4. 数据来源
 
-通过 LCU (League Client Update) 本地 API 获取数据，无需第三方 API Key：
+通过 LCU (League Client Update) 本地 API 获取，无需第三方 Key：
 
 | 端点 | 用途 |
 |------|------|
 | `/lol-match-history/v1/products/lol/{puuid}/matches` | 对战列表 |
-| `/lol-match-history/v1/games/{gameId}` | 单场对局详情 |
-| `/lol-summoner/v1/current-summoner` | 当前召唤师信息 |
-| `/lol-ranked/v1/current-ranked-stats` | 当前段位信息 |
-| `/lol-game-data/assets/v1/*` | CDN 静态数据（英雄 / 装备 / 技能 / 符文 / 海克斯） |
+| `/lol-match-history/v1/games/{gameId}` | 对局详情 |
+| `/lol-summoner/v1/current-summoner` | 当前召唤师 |
+| `/lol-ranked/v1/current-ranked-stats` | 段位信息 |
+| `/lol-game-data/assets/v1/*` | 静态数据（英雄/装备/技能/符文/海克斯） |
 | `/lol-collections/v1/inventories/{id}/champion-mastery` | 英雄熟练度 |
 
-数据字段完整清单见 [`LCU_DATA_FIELDS.json`](./electron-app/LCU_DATA_FIELDS.json)，包含 90+ 字段的中文注释、类型标注和前端展示状态。
+字段清单见 [`LCU_DATA_FIELDS.json`](./electron-app/LCU_DATA_FIELDS.json)。
 
 # 5. 构建与运行
 
-## 5.1 环境要求
+**环境要求：**
 
 - Node.js 20+
 - Windows（LCU API 仅 Windows 可用）
-- League of Legends 客户端（需正在运行）
-- Python 3 + Pillow（仅打包时，用于图标转换）
+- League of Legends 客户端正在运行
+- Python 3 + Pillow（仅打包时）
 
-## 5.2 安装与运行
+**安装与运行：**
 
 ```bash
-# 安装依赖
 npm install
-
-# 启动开发模式（HMR）
-npm run dev
-
-# 构建生产版本
-npm run build
-
-# 打包为可执行文件
-npm run package
+npm run dev      # 开发模式
+npm run build    # 构建
+npm run package  # 打包
 ```
 
-## 5.3 使用步骤
+**使用步骤：**
 
-1. 启动 League of Legends 客户端并登录
-2. 运行 `npm run dev` 启动本应用
-3. 应用会自动检测 LCU 连接，拉取战绩列表
-4. 在战绩列表中勾选需要分析的对局
-5. 进入「数据分析」查看各维度排名
+1. 登录 League of Legends 客户端
+2. 启动本应用，自动检测 LCU 连接并拉取战绩
+3. 勾选要分析的对局，进入数据分析页
 
-# 6. 注意事项
+# 6. 说明
 
-- **国服限制**：TENCENT 区域的 `gameCount` 通常被限制在 ~21 场，非国服地区可获得更多对局记录
-- **HTTPS 自签名证书**：LCU API 使用自签名证书，本应用已在 `LcuHttpClient` 中处理
-- **海克斯增幅数据**：仅在斗魂竞技场 (CHERRY) / 海克斯大乱斗 (KIWI) 模式中可用
-- **管理员权限**：首次运行如提示 PowerShell 权限问题，需以管理员身份运行
+- LCU API 使用自签名证书，已在 `LcuHttpClient` 中处理
+- 海克斯数据仅在斗魂竞技场 (CHERRY)、海克斯大乱斗 (KIWI) 模式可用
+- 首次运行若提示 PowerShell 权限，以管理员身份运行
 
 # 7. 参考与致谢
 
-本项目的架构设计和诸多实现细节深受以下优秀开源项目的启发，在此向原作者和维护者们致以诚挚的感谢：
+本项目在架构和实现上参考了以下项目：
 
 | 项目 | 说明 |
 |------|------|
-| [LeagueAkari](https://github.com/LeagueAkari/LeagueAkari) | 基于 LCU API 的英雄联盟客户端工具集，本项目在模块分层架构（main / shared / renderer）、LCU 连接发现机制、以及 IPC 通信模式上大量参考了 LeagueAkari 的设计思路 |
-| [Pengu Loader](https://github.com/PenguLoader/PenguLoader) | 英雄联盟客户端 JavaScript 插件加载器 |
-| [lcu-and-riotclient-api](https://github.com/KebsCS/lcu-and-riotclient-api) | LCU 与 Riot Client API 文档参考 |
-| [Seraphine](https://github.com/Zzaphkiel/Seraphine) | 英雄联盟 LCU API 工具集，提供了 LCU 数据提取的思路 |
+| [LeagueAkari](https://github.com/LeagueAkari/LeagueAkari) | LCU API 客户端工具集，模块分层架构（main/shared/renderer）、LCU 连接发现和 IPC 通信模式主要参考对象 |
+| [Pengu Loader](https://github.com/PenguLoader/PenguLoader) | League of Legends 客户端插件加载器 |
+| [lcu-and-riotclient-api](https://github.com/KebsCS/lcu-and-riotclient-api) | LCU 与 Riot Client API 文档 |
+| [Seraphine](https://github.com/Zzaphkiel/Seraphine) | LCU API 工具集 |
 
-**特别感谢 LeagueAkari 项目**（作者：[@HUPRO3](https://github.com/HUPRO3)），其清晰的代码架构和完善的功能设计为本项目的开发提供了宝贵的参考范例。
+感谢 [@HUPRO3](https://github.com/HUPRO3) 和 LeagueAkari 项目的贡献。
 
 # 8. 免责声明
 
-本软件是基于 Riot Games 的 League Client Update (LCU) API 开发的辅助工具，不涉及任何侵入性技术，理论上不会直接干预或修改游戏数据。但请注意游戏更新或反作弊系统可能带来的兼容性风险。
+本软件基于 Riot Games 的 LCU API 开发，未使用侵入性技术，不直接干预或修改游戏数据。游戏更新或反作弊系统可能导致兼容性变化。
 
-开发者不对因使用本软件而导致的任何后果（包括但不限于账号封禁、数据丢失等）承担责任。用户应在充分了解风险的前提下自行决定是否使用。
+开发者不承担因使用本软件导致的账号封禁、数据丢失等任何后果。使用前请充分了解相关风险。
 
-**本应用未获得 Riot Games 的官方支持或认可**，所有与 League of Legends 相关的商标、版权均归 Riot Games, Inc. 所有。使用本软件可能违反游戏的用户协议，请自行承担风险。
+本应用未获得 Riot Games 的官方支持或认可。League of Legends 相关商标和版权归 Riot Games, Inc. 所有。使用本软件可能违反游戏用户协议。
