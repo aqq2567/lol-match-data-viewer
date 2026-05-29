@@ -460,7 +460,7 @@ export async function fetchMatchList(
     return tb - ta
   })
 
-  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${rawGames.length} 场, totalGames=${totalGames}`)
+  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${games.length} 场 (API gameCount=${totalGames})`)
 
   // ═══ 第四步：构建 GameSummary 列表 ═══
   const games: GameSummary[] = rawGames.map((g: any) => buildGameSummary(g, puuid))
@@ -477,7 +477,7 @@ export async function fetchMatchList(
   return {
     summoner: summonerInfo,
     ranked: extractRankedData(ranked),
-    totalGames,
+    totalGames: games.length,
     pageSize: 0,
     games,
   }
@@ -719,7 +719,7 @@ export async function fetchMatchListForPlayer(
   return {
     summoner: summonerInfo,
     ranked: extractRankedData(ranked),
-    totalGames,
+    totalGames: games.length,
     pageSize: 0,
     games,
   }
