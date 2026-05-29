@@ -258,6 +258,25 @@ const MAX_FETCH_COUNT = 1000
 /** 每次并行调用 getGameDetail 的数量 */
 const DETAIL_CONCUR = 20
 
+/** 拉取一页对局摘要，自动降级 begIndex → beginIndex（国服兼容） */
+async function fetchMatchPage(
+  client: LcuHttpClient,
+  puuid: string,
+  beg: number,
+  end: number,
+): Promise<{ meta: any; games: any[] }> {
+  let page = await client.getMatchHistory(puuid, beg, end)
+  let games: any[] = page?.games?.games || []
+  if (games.length === 0) {
+    page = await client.getMatchHistoryAlt(puuid, beg, end)
+    games = page?.games?.games || []
+    if (games.length > 0) {
+      console.log(`[LCU:MAIN] beginIndex 兼容模式: beg=${beg} end=${end} → ${games.length} 场`)
+    }
+  }
+  return { meta: page?.games || {}, games }
+}
+
 export async function fetchMatchList(
   client: LcuHttpClient,
   _page: number = 1,
@@ -272,18 +291,19 @@ export async function fetchMatchList(
   // ═══ 第一步：拉取初始页 + 段位 ═══
   const ranked = await client.getRankedStats(puuid)
 
-  const firstPage = await client.getMatchHistory(puuid, 0, PAGE_SIZE - 1)
-  const firstMeta = firstPage?.games || {}
+  const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
   const totalGames: number = firstMeta.gameCount || 0
-  const targetCount = Math.min(totalGames, MAX_FETCH_COUNT)
+  // 不依赖 gameCount 作为硬上限（国服 gameCount 仅为缓存大小 ≈21），
+  // 以 MAX_FETCH_COUNT 为安全阀，持续拉取直到 API 返回空
+  const targetCount = MAX_FETCH_COUNT
 
   console.log(
     `[LCU:MAIN] 初始分页: beg=0 end=${PAGE_SIZE - 1} → ` +
-    `返回${(firstMeta.games || []).length}场 gameCount=${totalGames} target=${targetCount}`
+    `返回${firstGames.length}场 gameCount=${totalGames} target=${targetCount}`
   )
 
   // ═══ 第二步：分页拉取剩余的摘要数据 ═══
-  const allSummaries: any[] = [...(firstMeta.games || [])]
+  const allSummaries: any[] = [...firstGames]
   const detailMap = new Map<number, any>()
 
   while (allSummaries.length < targetCount) {
@@ -291,8 +311,7 @@ export async function fetchMatchList(
     const end = Math.min(beg + PAGE_SIZE - 1, targetCount - 1)
     console.log(`[LCU:MAIN] 继续分页: beg=${beg} end=${end}`)
 
-    const page = await client.getMatchHistory(puuid, beg, end)
-    const pageGames = page?.games?.games || []
+    const { games: pageGames } = await fetchMatchPage(client, puuid, beg, end)
     if (pageGames.length === 0) {
       console.log(`[LCU:MAIN] 分页中断: beg=${beg} 返回空（LCU 无更多数据）`)
       break
@@ -495,24 +514,22 @@ export async function fetchMatchListForPlayer(
 
   const ranked = await client.getRankedStats(puuid)
 
-  const firstPage = await client.getMatchHistory(puuid, 0, PAGE_SIZE - 1)
-  const firstMeta = firstPage?.games || {}
+  const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
   const totalGames: number = firstMeta.gameCount || 0
-  const targetCount = Math.min(totalGames, MAX_FETCH_COUNT)
+  const targetCount = MAX_FETCH_COUNT
 
   console.log(
     `[LCU:MAIN] fetchMatchListForPlayer PUUID=${puuid.slice(0,8)}…: ` +
     `初始分页 beg=0 end=${PAGE_SIZE - 1} → ` +
-    `返回${(firstMeta.games || []).length}场 gameCount=${totalGames} target=${targetCount}`
+    `返回${firstGames.length}场 gameCount=${totalGames} target=${targetCount}`
   )
 
-  const allSummaries: any[] = [...(firstMeta.games || [])]
+  const allSummaries: any[] = [...firstGames]
 
   while (allSummaries.length < targetCount) {
     const beg = allSummaries.length
     const end = Math.min(beg + PAGE_SIZE - 1, targetCount - 1)
-    const page = await client.getMatchHistory(puuid, beg, end)
-    const pageGames = page?.games?.games || []
+    const { games: pageGames } = await fetchMatchPage(client, puuid, beg, end)
     if (pageGames.length === 0) break
     allSummaries.push(...pageGames)
   }
