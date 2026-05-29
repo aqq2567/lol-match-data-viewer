@@ -277,6 +277,71 @@ async function fetchMatchPage(
   return { meta: page?.games || {}, games }
 }
 
+/** gameId 回溯参数 */
+const MAX_BACKTRACK_STEPS = 500
+const MAX_CONSECUTIVE_MISSES = 100
+
+/**
+ * gameId 回溯降级：从最小 gameId 递减逐个尝试 getGameDetail
+ * 绕过 LCU match-history 缓存限制，发现更多历史对局
+ * 回溯到的对局同时加入 allSummaries 和 detailMap（已持有完整详情）
+ */
+async function backtrackGameIds(
+  client: LcuHttpClient,
+  allSummaries: any[],
+  detailMap: Map<number, any>,
+  seenIds: Set<number>,
+  targetCount: number,
+): Promise<number> {
+  if (allSummaries.length === 0) return 0
+
+  let minGameId = Infinity
+  for (const g of allSummaries) {
+    if (g.gameId < minGameId) minGameId = g.gameId
+  }
+
+  let cursor = minGameId - 1
+  let consecutiveMisses = 0
+  let found = 0
+
+  console.log(
+    `[LCU:MAIN] gameId 回溯开始: 起始=${cursor} 已有=${allSummaries.length} target=${targetCount}`
+  )
+
+  for (
+    let step = 0;
+    step < MAX_BACKTRACK_STEPS &&
+    allSummaries.length < targetCount &&
+    consecutiveMisses < MAX_CONSECUTIVE_MISSES;
+    step++
+  ) {
+    const detail = await client.getGameDetail(cursor).catch(() => null)
+
+    if (detail && detail.gameId && !seenIds.has(detail.gameId)) {
+      seenIds.add(detail.gameId)
+      allSummaries.push(detail)
+      detailMap.set(detail.gameId, detail)
+      found++
+      consecutiveMisses = 0
+    } else {
+      consecutiveMisses++
+    }
+
+    if (step > 0 && step % 100 === 0) {
+      console.log(
+        `[LCU:MAIN] 回溯进度: step=${step} found=${found} current=${cursor}`
+      )
+    }
+
+    cursor--
+  }
+
+  console.log(
+    `[LCU:MAIN] gameId 回溯结束: found=${found} total=${allSummaries.length} consecutiveMisses=${consecutiveMisses}`
+  )
+  return found
+}
+
 export async function fetchMatchList(
   client: LcuHttpClient,
   _page: number = 1,
@@ -345,11 +410,23 @@ export async function fetchMatchList(
 
   console.log(`[LCU:MAIN] 分页完成: 共 ${allSummaries.length} 场摘要`)
 
-  // ═══ 第三步：并行补载所有对局的详情 ═══
+  // ═══ 2.5：gameId 回溯 —— 绕过 LCU 缓存限制发现更多对局 ═══
+  await backtrackGameIds(client, allSummaries, detailMap, seenIds, targetCount)
+
+  // 按 gameCreation 降序排列（回溯的对局是更早的，排序后自然在末尾）
+  allSummaries.sort((a, b) => {
+    const ta = a.gameCreationDate ? new Date(a.gameCreationDate).getTime() : (a.gameCreation || 0)
+    const tb = b.gameCreationDate ? new Date(b.gameCreationDate).getTime() : (b.gameCreation || 0)
+    return tb - ta
+  })
+
+  // ═══ 第三步：并行补载对局详情（跳过回溯已持有的） ═══
   for (let i = 0; i < allSummaries.length; i += DETAIL_CONCUR) {
     const batch = allSummaries.slice(i, i + DETAIL_CONCUR)
+    const needDetails = batch.filter(g => !detailMap.has(g.gameId))
+    if (needDetails.length === 0) continue
     const results = await Promise.all(
-      batch.map(g =>
+      needDetails.map(g =>
         client.getGameDetail(g.gameId).catch((err: any) => {
           console.warn(`[LCU:MAIN] 详情 #${g.gameId} 加载失败: ${err.message || err}`)
           return null
@@ -585,10 +662,23 @@ export async function fetchMatchListForPlayer(
   console.log(`[LCU:MAIN] fetchMatchListForPlayer 分页完成: 共 ${allSummaries.length} 场摘要`)
 
   const detailMap = new Map<number, any>()
+
+  // ═══ gameId 回溯 —— 绕过 LCU 缓存限制发现更多对局 ═══
+  await backtrackGameIds(client, allSummaries, detailMap, seenIds, targetCount)
+
+  allSummaries.sort((a, b) => {
+    const ta = a.gameCreationDate ? new Date(a.gameCreationDate).getTime() : (a.gameCreation || 0)
+    const tb = b.gameCreationDate ? new Date(b.gameCreationDate).getTime() : (b.gameCreation || 0)
+    return tb - ta
+  })
+
+  // 并行补载对局详情（跳过回溯已持有的）
   for (let i = 0; i < allSummaries.length; i += DETAIL_CONCUR) {
     const batch = allSummaries.slice(i, i + DETAIL_CONCUR)
+    const needDetails = batch.filter(g => !detailMap.has(g.gameId))
+    if (needDetails.length === 0) continue
     const results = await Promise.all(
-      batch.map(g =>
+      needDetails.map(g =>
         client.getGameDetail(g.gameId).catch((err: any) => {
           console.warn(`[LCU:MAIN] 详情 #${g.gameId} 加载失败: ${err.message || err}`)
           return null
