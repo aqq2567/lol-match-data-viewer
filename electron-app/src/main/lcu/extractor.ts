@@ -258,20 +258,25 @@ const MAX_FETCH_COUNT = 1000
 /** 每次并行调用 getGameDetail 的数量 */
 const DETAIL_CONCUR = 20
 
-/** 拉取一页对局摘要，自动降级 begIndex → beginIndex（国服兼容） */
+/**
+ * 拉取一页对局摘要
+ * 优先使用 beginIndex（完整拼写，国服/TENCENT 需要此格式）
+ * 返回空时降级 begIndex（Riot 直营服兼容）
+ */
 async function fetchMatchPage(
   client: LcuHttpClient,
   puuid: string,
   beg: number,
   end: number,
 ): Promise<{ meta: any; games: any[] }> {
-  let page = await client.getMatchHistory(puuid, beg, end)
+  // 首选 beginIndex（完整拼写）—— 国服 LCU 静默忽略不认识的 begIndex 参数
+  let page = await client.getMatchHistoryAlt(puuid, beg, end)
   let games: any[] = page?.games?.games || []
   if (games.length === 0) {
-    page = await client.getMatchHistoryAlt(puuid, beg, end)
+    page = await client.getMatchHistory(puuid, beg, end)
     games = page?.games?.games || []
     if (games.length > 0) {
-      console.log(`[LCU:MAIN] beginIndex 兼容模式: beg=${beg} end=${end} → ${games.length} 场`)
+      console.log(`[LCU:MAIN] begIndex 降级兼容: beg=${beg} end=${end} → ${games.length} 场`)
     }
   }
   return { meta: page?.games || {}, games }
