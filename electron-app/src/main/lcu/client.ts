@@ -50,7 +50,7 @@ function runPsScript(script: string, timeout: number): string {
 /** 通过 PowerShell 查找 LeagueClientUx.exe 进程并解析连接参数 */
 export function findLolClient(): LcuConnectionInfo | null {
   try {
-    // ═══ 首选方案：通过 lockfile 读取（无需 admin 权限）═════
+    // ═══ 方案1：通过进程 Path 获取 lockfile 目录（大多数系统无需 admin）═════
     const lockfileResult = runPsScript(`
       $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
       if (-not $p) { exit }
@@ -64,39 +64,67 @@ export function findLolClient(): LcuConnectionInfo | null {
     `, PS_EXEC_TIMEOUT)
 
     if (lockfileResult) {
-      // lockfile 格式: LeagueClientUx:pid:port:authToken:https
-      const parts = lockfileResult.trim().split(':')
-      if (parts.length >= 4) {
-        const pid = parseInt(parts[1]) || 0
-        const port = parseInt(parts[2]) || 0
-        const authToken = parts[3]
-        if (port && authToken) {
-          console.log(`[LCU:MAIN] 检测到 LCU (lockfile): port=${port}, pid=${pid}`)
+      const parsed = parseLockfile(lockfileResult)
+      if (parsed) {
+        console.log(`[LCU:MAIN] 检测到 LCU (lockfile): port=${parsed.port}, pid=${parsed.pid}`)
+        // 尝试从进程中获取 region / rsoPlatformId（可选，仅用于信息展示）
+        const extraInfo = runPsScript(`
+          $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = ${parsed.pid}" | Select-Object -ExpandProperty CommandLine) 2>$null
+          if (-not $cmdline) { $cmdline = (Get-WmiObject Win32_Process -Filter "ProcessId = ${parsed.pid}" | Select-Object -ExpandProperty CommandLine) 2>$null }
+          $cmdline
+        `, 4000)
 
-          // 尝试从进程中获取 region / rsoPlatformId（可选，仅用于信息展示）
-          const extraInfo = runPsScript(`
-            $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" | Select-Object -ExpandProperty CommandLine) 2>$null
-            if (-not $cmdline) { $cmdline = (Get-WmiObject Win32_Process -Filter "ProcessId = ${pid}" | Select-Object -ExpandProperty CommandLine) 2>$null }
-            $cmdline
-          `, 4000)
-
-          const extract = (pattern: string): string => {
-            const m = extraInfo.match(pattern)
-            return m ? m[1] : ''
-          }
-
-          return {
-            port,
-            authToken,
-            pid,
-            region: extract(/--region=([\w\-_]+)/),
-            rsoPlatformId: extract(/--rso_platform_id=([\w\-_]+)/),
-          }
+        return {
+          ...parsed,
+          region: extractFromCmdline(extraInfo, /--region=([\w\-_]+)/),
+          rsoPlatformId: extractFromCmdline(extraInfo, /--rso_platform_id=([\w\-_]+)/),
         }
       }
     }
 
-    // ═══ 回退方案：通过进程命令行解析（部分系统需 admin 权限）═════
+    // ═══ 方案2：搜索常见安装路径中的 lockfile（完全无需 admin 权限）══════
+    const foundLf = runPsScript(`
+      $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
+      if (-not $p) { exit }
+
+      # 检查固定路径（最快）
+      $fixedPaths = @(
+        "$env:ProgramFiles\\Riot Games\\League of Legends\\lockfile",
+        "${env:ProgramFiles(x86)}\\Riot Games\\League of Legends\\lockfile",
+        "C:\\Riot Games\\League of Legends\\lockfile",
+        "D:\\Riot Games\\League of Legends\\lockfile",
+        "E:\\Riot Games\\League of Legends\\lockfile",
+        "F:\\Riot Games\\League of Legends\\lockfile"
+      )
+      foreach ($fp in $fixedPaths) {
+        if (Test-Path $fp) {
+          Get-Content $fp -Raw
+          exit
+        }
+      }
+
+      # 搜索 Riot Games 目录树（深度有限）
+      $roots = @("$env:ProgramFiles\\Riot Games", "${env:ProgramFiles(x86)}\\Riot Games", "C:\\Riot Games", "D:\\Riot Games", "E:\\Riot Games")
+      foreach ($root in $roots) {
+        if (Test-Path $root) {
+          $lf = Get-ChildItem -Path $root -Filter 'lockfile' -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($lf) {
+            Get-Content $lf.FullName -Raw
+            exit
+          }
+        }
+      }
+    `, 8000)
+
+    if (foundLf) {
+      const parsed = parseLockfile(foundLf)
+      if (parsed) {
+        console.log(`[LCU:MAIN] 检测到 LCU (search): port=${parsed.port}, pid=${parsed.pid}`)
+        return { ...parsed, region: '', rsoPlatformId: '' }
+      }
+    }
+
+    // ═══ 方案3：回退到进程命令行解析（部分系统需 admin 权限）══════
     const cmdline = runPsScript(`
       $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
       if (-not $p) { exit }
@@ -122,30 +150,42 @@ export function findLolClient(): LcuConnectionInfo | null {
       return null
     }
 
-    const extract = (pattern: string): string => {
-      const m = cmdline.match(pattern)
-      return m ? m[1] : ''
-    }
-
-    const port = extract(/--app-port=(\d+)/)
-    const authToken = extract(/--remoting-auth-token=([\w\-_]+)/)
+    const port = extractFromCmdline(cmdline, /--app-port=(\d+)/)
+    const authToken = extractFromCmdline(cmdline, /--remoting-auth-token=([\w\-_]+)/)
     if (!port || !authToken) {
       console.warn(`[LCU:MAIN] 找到进程但无法解析连接参数, cmdline=${cmdline.slice(0, 200)}`)
       return null
     }
 
-    console.log(`[LCU:MAIN] 检测到 LCU (cmdline): port=${port}, region=${extract(/--region=([\w\-_]+)/)}`)
+    console.log(`[LCU:MAIN] 检测到 LCU (cmdline): port=${port}, region=${extractFromCmdline(cmdline, /--region=([\w\-_]+)/)}`)
     return {
       port: parseInt(port),
       authToken,
-      pid: parseInt(extract(/--app-pid=(\d+)/) || '0'),
-      region: extract(/--region=([\w\-_]+)/),
-      rsoPlatformId: extract(/--rso_platform_id=([\w\-_]+)/),
+      pid: parseInt(extractFromCmdline(cmdline, /--app-pid=(\d+)/) || '0'),
+      region: extractFromCmdline(cmdline, /--region=([\w\-_]+)/),
+      rsoPlatformId: extractFromCmdline(cmdline, /--rso_platform_id=([\w\-_]+)/),
     }
   } catch (err: any) {
     console.error(`[LCU:MAIN] 进程检测异常: ${err.message || err}`)
     return null
   }
+}
+
+/** 解析 lockfile 格式: name:pid:port:authToken:protocol */
+function parseLockfile(content: string): { port: number; authToken: string; pid: number } | null {
+  const parts = content.trim().split(':')
+  if (parts.length < 4) return null
+  const port = parseInt(parts[2]) || 0
+  const authToken = parts[3]
+  const pid = parseInt(parts[1]) || 0
+  if (!port || !authToken) return null
+  return { port, authToken, pid }
+}
+
+/** 从命令行字符串中提取正则匹配 */
+function extractFromCmdline(cmdline: string, pattern: RegExp): string {
+  const m = cmdline.match(pattern)
+  return m ? m[1] : ''
 }
 
 // ═══════════════════════════════════════════════════════════
