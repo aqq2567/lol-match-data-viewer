@@ -48,7 +48,7 @@
     "accountId": { "类型": "number", "注释": "账号 ID" },
     "platformId": { "类型": "string", "注释": "平台 ID" },
     "games": {
-      "gameCount": { "类型": "number", "注释": "对局总数 ⚠️ 国服通常只有 ~21 场" },
+      "gameCount": { "类型": "number", "注释": "对局总数（LCU API 单玩家上限 ~200 场，默认缓存 ~20 场）" },
       "gameIndexBegin": { "类型": "number", "注释": "返回的起始索引" },
       "gameIndexEnd": { "类型": "number", "注释": "返回的结束索引" },
       "gameBeginDate": { "类型": "string", "注释": "最早对局日期" },

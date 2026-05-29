@@ -251,9 +251,9 @@ export function extractChampionMasteryForGame(
 // 对标 LeagueAkari：使用 begIndex/endIndex 分页查询，而非 gameId 递减追溯
 // ═══════════════════════════════════════════════════════════
 
-/** 单次 getMatchHistory 请求的游戏数量（endIndex=1999，一次请求触发 LCU 拉取更多） */
-const PAGE_SIZE = 2000
-/** 目标拉取的对局总数上限 */
+/** 单次 getMatchHistory 请求的游戏数量（LCU API 实际上限 ~200，设为此值用满每次请求） */
+const PAGE_SIZE = 200
+/** 目标拉取的对局总数上限（安全阀，分页在 LCU 返回重复/空时自动停止） */
 const MAX_FETCH_COUNT = 2000
 /** 每次并行调用 getGameDetail 的数量 */
 const DETAIL_CONCUR = 20
@@ -297,8 +297,8 @@ export async function fetchMatchList(
 
   const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
   const totalGames: number = firstMeta.gameCount || 0
-  // 不依赖 gameCount 作为硬上限（国服 gameCount 仅为缓存大小 ≈21），
-  // 以 MAX_FETCH_COUNT 为安全阀，持续拉取直到 API 返回空或返回重复数据
+  // gameCount 反映 LCU 服务端该玩家的对局总数（endIndex 足够大时 ≈200），
+  // 不依赖它作为硬上限，以 MAX_FETCH_COUNT 为安全阀持续分页直到重复/空
   const targetCount = MAX_FETCH_COUNT
 
   console.log(
@@ -387,10 +387,10 @@ export async function fetchMatchList(
     return tb - ta
   })
 
-  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${games.length} 场 (API gameCount=${totalGames})`)
-
   // ═══ 第四步：构建 GameSummary 列表 ═══
   const games: GameSummary[] = rawGames.map((g: any) => buildGameSummary(g, puuid))
+
+  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${games.length} 场 (API gameCount=${totalGames})`)
 
   const summonerInfo: SummonerInfo = {
     puuid,
