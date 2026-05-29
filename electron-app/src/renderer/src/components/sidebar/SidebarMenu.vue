@@ -22,7 +22,7 @@
           </div>
         </div>
       </template>
-      <span class="menu-item-popover">{{ item.name }}</span>
+      <span class="menu-item-popover" :style="{ color: textColor }">{{ item.name }}</span>
     </NTooltip>
     <div class="indicator-rail"></div>
   </div>
@@ -31,7 +31,8 @@
 <script setup lang="ts">
 import { NBadge, NTooltip } from 'naive-ui'
 import type { Component as VueComponent } from 'vue'
-import { nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { useThemeStore } from '@/stores/theme'
 
 defineProps<{
   modelValue?: string
@@ -41,6 +42,11 @@ defineProps<{
 defineEmits<{
   'update:modelValue': [key: string]
 }>()
+
+const themeStore = useThemeStore()
+const textColor = computed(() =>
+  themeStore.isDark ? 'rgba(255, 255, 255, 0.85)' : 'rgba(0, 0, 0, 0.85)'
+)
 
 /* 活动指示器位置跟踪 */
 const sidebarMenuRef = useTemplateRef('sidebarMenuRef')
@@ -136,19 +142,19 @@ watch(
 [data-theme='dark'] {
   .menu-item {
     &:hover .menu-item-icon {
-      color: #fff;
+      color: #fff !important;
     }
     &:hover .menu-item-inner {
       background-color: #fff1;
     }
     &:active .menu-item-icon {
-      color: #fff8;
+      color: #fff8 !important;
     }
     .menu-item-icon {
-      color: rgba(255, 255, 255, 0.45);
+      color: rgba(255, 255, 255, 0.45) !important;
     }
     &.active .menu-item-icon {
-      color: #fff;
+      color: #fff !important;
     }
     &.active .menu-item-inner {
       background-color: #fff1;
@@ -159,19 +165,19 @@ watch(
 [data-theme='light'] {
   .menu-item {
     &:hover .menu-item-icon {
-      color: #000;
+      color: #000 !important;
     }
     &:hover .menu-item-inner {
       background-color: rgba(0, 0, 0, 0.06);
     }
     &:active .menu-item-icon {
-      color: rgba(0, 0, 0, 0.9);
+      color: rgba(0, 0, 0, 0.9) !important;
     }
     .menu-item-icon {
-      color: rgba(0, 0, 0, 0.45);
+      color: rgba(0, 0, 0, 0.45) !important;
     }
     &.active .menu-item-icon {
-      color: #000;
+      color: #000 !important;
     }
     &.active .menu-item-inner {
       background-color: rgba(0, 0, 0, 0.06);

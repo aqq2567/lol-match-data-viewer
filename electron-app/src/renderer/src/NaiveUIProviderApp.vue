@@ -5,7 +5,6 @@
     :locale="zhCN"
     :date-locale="dateZhCN"
     abstract
-    inline-theme-disabled
   >
     <NMessageProvider
       :container-style="{ top: 'calc(var(--title-bar-height) + 12px)' }"
@@ -28,6 +27,7 @@ import {
   NMessageProvider,
   NNotificationProvider,
   darkTheme,
+  lightTheme,
   dateZhCN,
   zhCN,
   type GlobalThemeOverrides
@@ -38,7 +38,7 @@ import App from './App.vue'
 
 const themeStore = useThemeStore()
 
-const naiveTheme = computed(() => themeStore.isDark ? darkTheme : null)
+const naiveTheme = computed(() => themeStore.isDark ? darkTheme : lightTheme)
 
 /** Naive UI 暗色主题微调 */
 const darkOverrides: GlobalThemeOverrides = {

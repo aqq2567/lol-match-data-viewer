@@ -473,8 +473,11 @@ const advancedCategories: StatCategoryDef[] = [
   { key: 'dmgPerGold', label: '伤害/经济', colorClass: 'cat-red', getter: (s) => s.damage.total_to_champs / Math.max(s.economy.gold_earned, 1), fmt: (v) => v.toFixed(2) },
   { key: 'dmgPerKill', label: '伤害/击杀', colorClass: 'cat-orange', getter: (s) => s.damage.total_to_champs / Math.max(s.kills, 1), fmt: (v) => fmtNum(v) },
   { key: 'dmgPerDeath', label: '伤害/死亡', colorClass: 'cat-purple', getter: (s) => s.damage.total_to_champs / Math.max(s.deaths, 1), fmt: (v) => fmtNum(v) },
-]
 
+  { key: 'dmgShare', label: '伤害占比', colorClass: 'cat-red', getter: () => 0, fmt: (v) => (v * 100).toFixed(1) + '%' },
+  { key: 'dmgTakenShare', label: '承伤占比', colorClass: 'cat-blue', getter: () => 0, fmt: (v) => (v * 100).toFixed(1) + '%' },
+
+]
 /** 高阶数据指标 */
 const advancedMetrics = computed<StatCategoryDef[]>(() => advancedCategories)
 
@@ -586,19 +589,42 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   if (!games || !selectedCategory.value || !isAdvancedMetric(selectedMetric.value)) return []
 
   const key = selectedMetric.value
-  const playerData = new Map<string, { totalDmg: number; totalGold: number; totalKills: number; totalDeaths: number; profileIconId: number; gameCount: number; winCount: number }>()
+  const playerData = new Map<string, { totalDmg: number; totalGold: number; totalKills: number; totalDeaths: number; totalTeamDmg: number; totalDmgTaken: number; totalTeamDmgTaken: number; profileIconId: number; gameCount: number; winCount: number }>()
 
   for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
+    const blueDmg = g.blue_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_to_champs, 0)
+    const redDmg = g.red_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_to_champs, 0)
+    const blueTaken = g.blue_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_taken, 0)
+    const redTaken = g.red_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_taken, 0)
+    for (const p of g.blue_team.players) {
       const name = p.summoner_name
       if (!playerData.has(name)) {
-        playerData.set(name, { totalDmg: 0, totalGold: 0, totalKills: 0, totalDeaths: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
+        playerData.set(name, { totalDmg: 0, totalGold: 0, totalKills: 0, totalDeaths: 0, totalTeamDmg: 0, totalDmgTaken: 0, totalTeamDmgTaken: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
       }
       const d = playerData.get(name)!
       d.totalDmg += p.stats.damage.total_to_champs
       d.totalGold += p.stats.economy.gold_earned
       d.totalKills += p.stats.kills
       d.totalDeaths += p.stats.deaths
+      d.totalTeamDmg += blueDmg
+      d.totalDmgTaken += p.stats.damage.total_taken
+      d.totalTeamDmgTaken += blueTaken
+      d.gameCount++
+      if (p.stats.win) d.winCount++
+    }
+    for (const p of g.red_team.players) {
+      const name = p.summoner_name
+      if (!playerData.has(name)) {
+        playerData.set(name, { totalDmg: 0, totalGold: 0, totalKills: 0, totalDeaths: 0, totalTeamDmg: 0, totalDmgTaken: 0, totalTeamDmgTaken: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
+      }
+      const d = playerData.get(name)!
+      d.totalDmg += p.stats.damage.total_to_champs
+      d.totalGold += p.stats.economy.gold_earned
+      d.totalKills += p.stats.kills
+      d.totalDeaths += p.stats.deaths
+      d.totalTeamDmg += redDmg
+      d.totalDmgTaken += p.stats.damage.total_taken
+      d.totalTeamDmgTaken += redTaken
       d.gameCount++
       if (p.stats.win) d.winCount++
     }
@@ -625,6 +651,18 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
         raw = [
           { label: '总伤害', value: d.totalDmg },
           { label: '总死亡', value: d.totalDeaths },
+        ]
+      } else if (key === 'dmgShare') {
+        ratio = d.totalTeamDmg > 0 ? d.totalDmg / d.totalTeamDmg : 0
+        raw = [
+          { label: '个人总伤害', value: d.totalDmg },
+          { label: '队伍总伤害', value: d.totalTeamDmg },
+        ]
+      } else if (key === 'dmgTakenShare') {
+        ratio = d.totalTeamDmgTaken > 0 ? d.totalDmgTaken / d.totalTeamDmgTaken : 0
+        raw = [
+          { label: '个人总承伤', value: d.totalDmgTaken },
+          { label: '队伍总承伤', value: d.totalTeamDmgTaken },
         ]
       } else {
         ratio = 0
@@ -676,6 +714,8 @@ const advancedBestTitle = computed(() => {
     dmgPerGold: '吃草挤奶',
     dmgPerKill: 'K头有用',
     dmgPerDeath: '自爆卡车',
+    dmgShare: '全靠队友',
+    dmgTakenShare: '抗在前面',
   }
   return selectedMetric.value ? (map[selectedMetric.value] || '最佳') : '最佳'
 })
@@ -683,6 +723,8 @@ const advancedBestTitle = computed(() => {
 const advancedWorstTitle = computed(() => {
   const map: Record<string, string> = {
     dmgPerGold: '吃奶挤草',
+    dmgShare: '查无此人',
+    dmgTakenShare: '躲在后面',
     dmgPerKill: 'Kobe',
     dmgPerDeath: '其实我是辅助',
   }

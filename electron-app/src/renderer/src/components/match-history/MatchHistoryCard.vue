@@ -158,6 +158,8 @@ dayjs.locale('zh-cn')
 
 const tabStore = useTabStore()
 
+let _lastOpenTabTime = 0
+
 const { game, selfPuuid, selected } = defineProps<{
   game: GameSummary
   selfPuuid: string
@@ -225,6 +227,8 @@ function displayName(p: ParticipantBrief): string {
 }
 
 function openPlayerTab(p: ParticipantBrief) {
+  if (Date.now() - _lastOpenTabTime < 500) return
+  _lastOpenTabTime = Date.now()
   if (!p.puuid) return
   const name = p.gameName ? (p.tagLine ? `${p.gameName}#${p.tagLine}` : p.gameName) : p.summonerName
   if (!name) return

@@ -203,7 +203,12 @@ async function refreshData() {
     checkedRowKeys.value = []
     _retryCooldown = 0
     const s = listData.value.summoner
-    tabStore.openTab(s.puuid, s.name || displayName.value, s.profileIconId, s.level)
+    const tab = tabStore.tabs.find(t => t.puuid === s.puuid)
+    if (tab) {
+      tab.name = s.name || displayName.value
+      tab.profileIconId = s.profileIconId
+      tab.summonerLevel = s.level
+    }
     message.success(`${displayName.value} — ${listData.value.totalGames} 场对局`)
   } catch (e: any) {
     message.error(`加载失败: ${e.message || e}`)
