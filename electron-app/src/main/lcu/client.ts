@@ -90,7 +90,7 @@ export function findLolClient(): LcuConnectionInfo | null {
       # 检查固定路径（最快）
       $fixedPaths = @(
         "$env:ProgramFiles\\Riot Games\\League of Legends\\lockfile",
-        "${env:ProgramFiles(x86)}\\Riot Games\\League of Legends\\lockfile",
+        "\${env:ProgramFiles(x86)}\\Riot Games\\League of Legends\\lockfile",
         "C:\\Riot Games\\League of Legends\\lockfile",
         "D:\\Riot Games\\League of Legends\\lockfile",
         "E:\\Riot Games\\League of Legends\\lockfile",
@@ -104,7 +104,7 @@ export function findLolClient(): LcuConnectionInfo | null {
       }
 
       # 搜索 Riot Games 目录树（深度有限）
-      $roots = @("$env:ProgramFiles\\Riot Games", "${env:ProgramFiles(x86)}\\Riot Games", "C:\\Riot Games", "D:\\Riot Games", "E:\\Riot Games")
+      $roots = @("$env:ProgramFiles\\Riot Games", "\${env:ProgramFiles(x86)}\\Riot Games", "C:\\Riot Games", "D:\\Riot Games", "E:\\Riot Games")
       foreach ($root in $roots) {
         if (Test-Path $root) {
           $lf = Get-ChildItem -Path $root -Filter 'lockfile' -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 1

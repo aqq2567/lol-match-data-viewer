@@ -208,7 +208,7 @@ const bests = computed(() => {
     ['survival_total_heal', s => s.survival.total_heal, '治疗最高'],
     ['survival_damage_self_mitigated', s => s.survival.damage_self_mitigated, '最硬选手'],
     ['survival_longest_time_living', s => s.survival.longest_time_living, '不死战神'],
-    ['cc_time_cc_others', s => s.cc.time_cc_others, '控制最强'],
+    ['cc_total_cc_dealt', s => s.cc.total_cc_dealt, '控制最强'],
     ['cs_total', s => s.cs.total, '补刀最多'],
     ['economy_gold_earned', s => s.economy.gold_earned, '打钱最多'],
     ['vision_score', s => s.vision.score, '视野最高'],
@@ -226,7 +226,7 @@ const bestsList = computed(() => {
   const labels: Record<string, string> = {
     damage_total_to_champs: '伤害最高', damage_total_taken: '承伤最高',
     survival_total_heal: '治疗最高', survival_damage_self_mitigated: '最硬选手',
-    survival_longest_time_living: '不死战神', cc_time_cc_others: '控制最强',
+    survival_longest_time_living: '不死战神', cc_total_cc_dealt: '控制最强',
     cs_total: '补刀最多', economy_gold_earned: '打钱最多',
     vision_score: '视野最高', objectives_turret_kills: '推塔最多',
     kills: '击杀最多', assists: '助攻最多',
@@ -234,7 +234,7 @@ const bestsList = computed(() => {
   const types: Record<string, any> = {
     damage_total_to_champs: 'error', damage_total_taken: 'warning',
     survival_total_heal: 'success', survival_damage_self_mitigated: 'info',
-    survival_longest_time_living: 'info', cc_time_cc_others: 'warning',
+    survival_longest_time_living: 'info', cc_total_cc_dealt: 'warning',
     cs_total: 'default', economy_gold_earned: 'warning',
     vision_score: 'info', objectives_turret_kills: 'default',
     kills: 'error', assists: 'success',

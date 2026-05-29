@@ -55,10 +55,10 @@
         <span class="stat-label">减伤</span>
         <span class="stat-value">{{ fmtNum(player.stats.survival.damage_self_mitigated) }}</span>
       </div>
-      <div class="stat-cell" :class="{ highlight: isBest('cc_time_cc_others') }"
-        title="控制时长(秒)">
-        <span class="stat-label">控制</span>
-        <span class="stat-value">{{ player.stats.cc.time_cc_others }}s</span>
+      <div class="stat-cell" :class="{ highlight: isBest('cc_total_cc_dealt') }"
+        title="控制累计(秒)">
+        <span class="stat-label">控制累计</span>
+        <span class="stat-value">{{ player.stats.cc.total_cc_dealt }}s</span>
       </div>
       <div class="stat-cell" :class="{ highlight: isBest('cs_total') }"
         title="补刀">

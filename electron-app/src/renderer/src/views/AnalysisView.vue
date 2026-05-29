@@ -446,8 +446,7 @@ const statCategories: StatCategoryDef[] = [
   { key: 'vision', label: '视野', colorClass: 'cat-blue', getter: (s) => s.vision.score, fmt: (v) => String(Math.round(v)) },
   { key: 'wardsPlaced', label: '插眼', colorClass: 'cat-blue', getter: (s) => s.vision.wards_placed, fmt: (v) => String(Math.round(v)) },
   { key: 'wardsKilled', label: '排眼', colorClass: 'cat-blue', getter: (s) => s.vision.wards_killed, fmt: (v) => String(Math.round(v)) },
-  { key: 'cc', label: '控制', colorClass: 'cat-purple', getter: (s) => s.cc.time_cc_others, fmt: (v) => Math.round(v) + 's' },
-  { key: 'ccDealt', label: '受控', colorClass: 'cat-purple', getter: (s) => s.cc.total_cc_dealt, fmt: (v) => Math.round(v) + 's' },
+  { key: 'ccDealt', label: '控制累计', colorClass: 'cat-purple', getter: (s) => s.cc.total_cc_dealt, fmt: (v) => Math.round(v) + 's' },
   { key: 'firstBlood', label: '一血', colorClass: 'cat-red', getter: (s) => s.firsts.first_blood_kill ? 1 : 0, fmt: (v) => String(Math.round(v)) },
   { key: 'firstTower', label: '一塔', colorClass: 'cat-gold', getter: (s) => s.firsts.first_tower_kill ? 1 : 0, fmt: (v) => String(Math.round(v)) },
   { key: 'turrets', label: '推塔', colorClass: 'cat-gold', getter: (s) => s.objectives.turret_kills, fmt: (v) => String(Math.round(v)) },
@@ -698,8 +697,7 @@ const firstPlaceTitle = computed(() => {
     selfMitigated:'不疼',
     gold:'大富翁',
     cs:'Choooooooooovy!',
-    cc:'就是折磨就是胶粘',
-    ccDealt:'让我动一下',
+    ccDealt:'就是折磨就是胶粘',
     longestTimeSpentLiving:'赖着不死',
   }
   return selectedMetric.value ? (map[selectedMetric.value] || '') : ''
@@ -1183,7 +1181,7 @@ async function loadAnalysis() {
           avgCs: avg((s) => s.cs.total),
           avgGold: avg((s) => s.economy.gold_earned),
           avgVisionScore: avg((s) => s.vision.score),
-          avgCcTime: avg((s) => s.cc.time_cc_others),
+          avgCcTime: avg((s) => s.cc.total_cc_dealt),
         }
       })
       .sort((a, b) => b.gameCount - a.gameCount)
