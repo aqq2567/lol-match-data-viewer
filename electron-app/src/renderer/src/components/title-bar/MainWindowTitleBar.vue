@@ -59,7 +59,7 @@ defineEmits<{
   align-items: center;
   -webkit-app-region: drag;
   backdrop-filter: blur(8px);
-  background-color: #0001;
+  background-color: var(--sidebar-bg);
   z-index: 1000000;
 }
 
@@ -69,7 +69,7 @@ defineEmits<{
   font-weight: bold;
   font-size: 13px;
   margin-left: 8px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
 }
 
 .shard-area {
@@ -83,7 +83,7 @@ defineEmits<{
 
 .context-title {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .center-status {
@@ -97,6 +97,6 @@ defineEmits<{
   height: 40%;
   box-sizing: border-box;
   margin: 0 8px;
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--divider-color);
 }
 </style>

@@ -195,7 +195,7 @@ const frequentOpponents = computed(() =>
 
 .section {
   padding: 8px 16px;
-  background-color: #ffffff10;
+  background-color: var(--section-color);
   border-radius: 4px;
   margin-bottom: 0;
 }
@@ -205,7 +205,7 @@ const frequentOpponents = computed(() =>
   align-items: center;
   font-size: 16px;
   font-weight: bold;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
@@ -219,11 +219,11 @@ const frequentOpponents = computed(() =>
 
   .stat-label {
     font-size: 13px;
-    color: #a2a2a2;
+    color: var(--text-secondary);
   }
   .stat-value {
     font-size: 13px;
-    color: #dcdcdc;
+    color: var(--text-secondary);
     text-align: right;
   }
 }
@@ -242,7 +242,7 @@ const frequentOpponents = computed(() =>
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: var(--bg-hover);
     }
     .champ-count {
       position: absolute;
@@ -270,13 +270,13 @@ const frequentOpponents = computed(() =>
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--bg-hover);
     margin-right: 6px;
     flex-shrink: 0;
   }
   .player-name {
     font-size: 13px;
-    color: #bbb;
+    color: var(--text-secondary);
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -284,7 +284,7 @@ const frequentOpponents = computed(() =>
   }
   .player-count {
     font-size: 12px;
-    color: #9f9f9f;
+    color: var(--text-tertiary);
     margin-left: 4px;
     flex-shrink: 0;
   }

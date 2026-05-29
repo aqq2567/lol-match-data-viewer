@@ -228,7 +228,7 @@ function displayName(p: ParticipantBrief): string {
   padding: 0 0 0 12px;
   border-radius: 4px;
   box-sizing: border-box;
-  background-color: #28344e;
+  background-color: var(--card-base-bg);
   width: 740px;
   height: 96px;
   overflow: hidden;
@@ -237,27 +237,27 @@ function displayName(p: ParticipantBrief): string {
 
 /* ======== 胜负颜色方案（对齐 LeagueAkari） ======== */
 .win {
-  border-left: 6px solid #5383e8;
-  background-color: #212b41e0;
-  .zone-game .mode { color: #5ca9f1; }
-  .zone-game .result { color: #5ca9f1; }
-  .zone-checkbox { background-color: #2f436e; }
+  border-left: 6px solid var(--card-win-border);
+  background-color: var(--card-win-bg);
+  .zone-game .mode { color: var(--card-win-text); }
+  .zone-game .result { color: var(--card-win-text); }
+  .zone-checkbox { background-color: var(--checkbox-win-bg); }
 }
 
 .lose {
-  border-left: 6px solid #9e3001;
-  background-color: #4b2c31e0;
-  .zone-game .mode { color: #e96025; }
-  .zone-game .result { color: #e96025; }
-  .zone-checkbox { background-color: #703c47; }
+  border-left: 6px solid var(--card-lose-border);
+  background-color: var(--card-lose-bg);
+  .zone-game .mode { color: var(--card-lose-text); }
+  .zone-game .result { color: var(--card-lose-text); }
+  .zone-checkbox { background-color: var(--checkbox-lose-bg); }
 }
 
 .remake {
-  border-left: 6px solid #8b8b8b;
-  background-color: #363636cc;
-  .zone-game .mode { color: #d1d1d1; }
-  .zone-game .result { color: #d1d1d1; }
-  .zone-checkbox { background-color: #797979; }
+  border-left: 6px solid var(--card-remake-border);
+  background-color: var(--card-remake-bg);
+  .zone-game .mode { color: var(--card-remake-text); }
+  .zone-game .result { color: var(--card-remake-text); }
+  .zone-checkbox { background-color: var(--checkbox-remake-bg); }
 }
 
 /* ======== 区域 1: 游戏信息 (112px) ======== */
@@ -269,7 +269,7 @@ function displayName(p: ParticipantBrief): string {
   flex-shrink: 0;
   box-sizing: border-box;
   font-size: 12px;
-  color: rgb(159, 159, 159);
+  color: var(--card-text-secondary);
   gap: 2px;
 
   .mode {
@@ -287,7 +287,7 @@ function displayName(p: ParticipantBrief): string {
     margin: 2px 0;
     height: 1px;
     width: 60%;
-    background-color: rgb(91, 91, 91);
+    background-color: var(--card-divider);
   }
 
   .result {
@@ -338,7 +338,7 @@ function displayName(p: ParticipantBrief): string {
     font-size: 12px;
     border-radius: 50%;
     background-color: rgba(0, 0, 0, 0.621);
-    color: white;
+    color: var(--text-primary);
   }
 
   .summoner-spells,
@@ -368,23 +368,23 @@ function displayName(p: ParticipantBrief): string {
       }
 
       .sep {
-        color: rgb(159, 159, 159);
+        color: var(--card-text-secondary);
         font-size: 14px;
         margin: 0 4px;
       }
 
-      .k { color: rgb(68, 160, 246); }
-      .d { color: rgb(200, 81, 30); }
-      .a { color: rgb(159, 159, 159); }
+      .k { color: var(--kda-k-color); }
+      .d { color: var(--kda-d-color); }
+      .a { color: var(--kda-a-color); }
     }
 
     .kda-ratio {
       font-size: 12px;
-      color: rgb(159, 159, 159);
+      color: var(--card-text-secondary);
     }
 
     .kda-ratio.perfect-kda {
-      color: rgb(92, 169, 241);
+      color: var(--card-win-text);
     }
   }
 
@@ -406,7 +406,7 @@ function displayName(p: ParticipantBrief): string {
   font-size: 11px;
   line-height: 14px;
   gap: 2px;
-  color: rgb(159, 159, 159);
+  color: var(--card-text-secondary);
 
   .stat-row {
     display: flex;
@@ -416,14 +416,14 @@ function displayName(p: ParticipantBrief): string {
     .stat-label {
       width: 32px;
       font-size: 11px;
-      color: rgb(159, 159, 159);
+      color: var(--card-text-secondary);
       text-align: right;
     }
 
     .stat-value {
       font-size: 11px;
       font-weight: bold;
-      color: rgb(220, 220, 220);
+      color: var(--card-text-primary);
     }
 
     &.highlight .stat-value {
@@ -467,7 +467,7 @@ function displayName(p: ParticipantBrief): string {
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 12px;
-      color: rgb(187, 187, 187);
+      color: var(--card-text-player);
       cursor: pointer;
       transition: all 0.3s ease;
 
@@ -476,7 +476,7 @@ function displayName(p: ParticipantBrief): string {
       &.self {
         cursor: default;
         font-weight: bold;
-        color: white;
+        color: var(--text-primary);
       }
     }
   }

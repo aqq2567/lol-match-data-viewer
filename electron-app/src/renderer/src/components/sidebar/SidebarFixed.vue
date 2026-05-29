@@ -28,6 +28,21 @@
       </div>
     </NPopover>
 
+    <!-- 主题切换按钮 -->
+    <NTooltip placement="right">
+      <template #trigger>
+        <div class="menu-item" @click="themeStore.toggleTheme()">
+          <div class="menu-item-inner">
+            <NIcon class="menu-item-icon">
+              <SunnyOutline v-if="themeStore.isDark" />
+              <MoonOutline v-else />
+            </NIcon>
+          </div>
+        </div>
+      </template>
+      <span class="simple-popover">{{ themeStore.isDark ? '切换亮色主题' : '切换暗色主题' }}</span>
+    </NTooltip>
+
     <!-- 设置按钮 -->
     <NTooltip placement="right">
       <template #trigger>
@@ -47,9 +62,14 @@ import { NBadge, NIcon, NPopover, NTooltip } from 'naive-ui'
 import {
   CheckmarkCircleOutline,
   CloseCircleOutline,
+  MoonOutline,
   SettingsOutline,
+  SunnyOutline,
   SyncOutline
 } from '@vicons/ionicons5'
+import { useThemeStore } from '@/stores/theme'
+
+const themeStore = useThemeStore()
 
 defineProps<{
   connStatus: 'connected' | 'loading' | 'disconnected'
@@ -98,9 +118,6 @@ defineProps<{
     animation: spin 1.5s linear infinite;
   }
 
-  .conn-err {
-    color: rgba(255, 255, 255, 0.4);
-  }
 }
 
 [data-theme='dark'] {
@@ -111,6 +128,23 @@ defineProps<{
     .menu-item-icon {
       color: rgba(255, 255, 255, 0.8);
     }
+  }
+  .conn-err {
+    color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+[data-theme='light'] {
+  .menu-item {
+    &:hover .menu-item-icon {
+      color: #000;
+    }
+    .menu-item-icon {
+      color: rgba(0, 0, 0, 0.7);
+    }
+  }
+  .conn-err {
+    color: rgba(0, 0, 0, 0.35);
   }
 }
 
@@ -127,7 +161,7 @@ defineProps<{
     color: #f0a020;
   }
   .err {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-secondary);
   }
 }
 

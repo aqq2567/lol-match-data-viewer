@@ -158,7 +158,7 @@ function isBest(key: string): boolean {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--bg-hover);
   flex-shrink: 0;
 }
 
@@ -169,7 +169,7 @@ function isBest(key: string): boolean {
 .pc-name {
   font-weight: 600;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -177,7 +177,7 @@ function isBest(key: string): boolean {
 
 .pc-champion-name {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
 }
 
 .pc-kda {
@@ -189,24 +189,24 @@ function isBest(key: string): boolean {
 
 .kda-num {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   font-size: 13px;
 }
 
 .kda-sep {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
   margin: 0 1px;
 }
 
 .kda-ratio {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
   margin-left: 3px;
 }
 
 .pc-meta {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
 }
 
 /* 中间指标格子 */
@@ -225,7 +225,7 @@ function isBest(key: string): boolean {
   min-width: 48px;
   padding: 2px 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-card);
   transition: all 0.15s;
 }
 
@@ -236,14 +236,14 @@ function isBest(key: string): boolean {
 
 .stat-label {
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
   text-transform: uppercase;
 }
 
 .stat-value {
   font-weight: 600;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   font-family: monospace;
 }
 

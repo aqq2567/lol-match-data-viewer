@@ -33,8 +33,8 @@ defineProps<{
   .right-side-content {
     flex: 1;
     width: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--divider-color);
+    border-left: 1px solid var(--divider-color);
     border-top-left-radius: 2px;
   }
 }

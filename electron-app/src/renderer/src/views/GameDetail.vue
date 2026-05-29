@@ -275,7 +275,7 @@ function formatBestValue(key: string, v: number): string {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
 }
 
 .game-header {
@@ -283,8 +283,8 @@ function formatBestValue(key: string, v: number): string {
   align-items: center;
   gap: 16px;
   padding: 10px 20px;
-  background: rgba(24, 24, 30, 0.9);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -302,17 +302,17 @@ function formatBestValue(key: string, v: number): string {
 .game-id {
   font-weight: 600;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .game-time {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
 }
 
 .game-version {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
   font-family: monospace;
 }
 
@@ -328,8 +328,8 @@ function formatBestValue(key: string, v: number): string {
   flex: 1;
   border-radius: 8px;
   padding: 12px;
-  background: rgba(24, 24, 32, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
 }
 
 .blue-panel {
@@ -360,7 +360,7 @@ function formatBestValue(key: string, v: number): string {
 
 .lose-badge {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
 }
 
 .team-stats-row {
@@ -369,7 +369,7 @@ function formatBestValue(key: string, v: number): string {
   flex-wrap: wrap;
   margin-bottom: 10px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
 }
 
 .first-badge {
@@ -386,7 +386,7 @@ function formatBestValue(key: string, v: number): string {
 .player-card {
   border-radius: 6px;
   padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-section);
   border: 1px solid transparent;
   transition: border-color 0.15s;
 }
@@ -398,14 +398,14 @@ function formatBestValue(key: string, v: number): string {
 
 .bests-summary {
   padding: 12px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
 .bests-summary h4 {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -423,7 +423,7 @@ function formatBestValue(key: string, v: number): string {
 }
 
 .best-name {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   font-weight: 500;
   max-width: 120px;
   overflow: hidden;
@@ -432,20 +432,20 @@ function formatBestValue(key: string, v: number): string {
 }
 
 .best-value {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
   font-family: monospace;
 }
 
 .mastery-section {
   padding: 12px 20px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
 .mastery-section h4 {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -463,12 +463,12 @@ function formatBestValue(key: string, v: number): string {
 }
 
 .champ-id {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
   width: 54px;
 }
 
 .mastery-text {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   font-size: 11px;
 }
 </style>

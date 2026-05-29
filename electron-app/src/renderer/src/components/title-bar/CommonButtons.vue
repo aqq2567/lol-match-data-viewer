@@ -88,6 +88,21 @@ defineEmits<{
   }
 }
 
+[data-theme='light'] {
+  .common-buttons {
+    .common-button-outer:hover .common-button-inner {
+      background-color: rgba(0, 0, 0, 0.1);
+      color: rgba(0, 0, 0, 1);
+    }
+    .common-button-outer:active .common-button-inner {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    .common-button-inner {
+      color: rgba(0, 0, 0, 0.75);
+    }
+  }
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

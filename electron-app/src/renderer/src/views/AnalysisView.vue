@@ -1294,11 +1294,11 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
 }
 
 .empty-state h3 {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 /* ── 概览栏 ── */
@@ -1307,8 +1307,8 @@ onMounted(() => {
   align-items: center;
   gap: 24px;
   padding: 12px 20px;
-  background: rgba(24, 24, 30, 0.9);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -1326,7 +1326,7 @@ onMounted(() => {
 .stat-badge .stat-num {
   font-size: 20px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
 }
 
 .stat-badge.win .stat-num { color: #239b23; }
@@ -1334,7 +1334,7 @@ onMounted(() => {
 
 .stat-badge .stat-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
 }
 
 /* ── 主体双栏布局 ── */
@@ -1348,8 +1348,8 @@ onMounted(() => {
 .metric-sidebar {
   width: 160px;
   flex-shrink: 0;
-  background: rgba(24, 24, 30, 0.6);
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--header-bg);
+  border-right: 1px solid var(--border-color);
   overflow-y: auto;
   padding: 8px 0;
 }
@@ -1357,7 +1357,7 @@ onMounted(() => {
 .sidebar-title {
   font-size: 14px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
   padding: 10px 16px 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1374,12 +1374,12 @@ onMounted(() => {
 }
 
 .metric-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
 }
 
 .metric-item.active {
-  background: rgba(255, 255, 255, 0.06);
-  border-left-color: rgba(255, 255, 255, 0.5);
+  background: var(--bg-section);
+  border-left-color: var(--text-primary);
 }
 
 .metric-dot {
@@ -1398,17 +1398,17 @@ onMounted(() => {
 
 .metric-label {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
 }
 
 .metric-item.active .metric-label {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 /* ── 可折叠目录 ── */
 .category-group {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 4px;
   margin-bottom: 4px;
 }
@@ -1424,11 +1424,11 @@ onMounted(() => {
 }
 
 .category-header:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
 }
 
 .category-arrow {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
   transition: transform 0.2s;
   flex-shrink: 0;
 }
@@ -1440,7 +1440,7 @@ onMounted(() => {
 .category-label {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex: 1;
@@ -1448,8 +1448,8 @@ onMounted(() => {
 
 .category-count {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  background: var(--bg-section);
   padding: 1px 6px;
   border-radius: 8px;
 }
@@ -1461,7 +1461,7 @@ onMounted(() => {
 /* ── 空目录占位 ── */
 .empty-category {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
   padding: 12px 16px 12px 28px;
   text-align: center;
 }
@@ -1483,7 +1483,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
 }
 
 .no-selection p {
@@ -1492,7 +1492,7 @@ onMounted(() => {
 
 .no-selection .sub {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
 }
 
 /* ── 上方面板：领奖台 / 首末名 (~1/3) ── */
@@ -1505,7 +1505,7 @@ onMounted(() => {
 .ranking-section h4 {
   font-size: 15px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -1533,7 +1533,7 @@ onMounted(() => {
 
 .spot-name {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1544,7 +1544,7 @@ onMounted(() => {
 .spot-value {
   font-size: 22px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
   font-family: monospace;
   text-align: center;
 }
@@ -1629,7 +1629,7 @@ onMounted(() => {
 .popover-stats {
   font-size: 13px;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
   padding: 4px 2px;
 }
 
@@ -1638,7 +1638,7 @@ onMounted(() => {
 }
 
 .popover-stats b {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
   margin-left: 4px;
 }
 
@@ -1650,7 +1650,7 @@ onMounted(() => {
 .items-section h4 {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 
@@ -1664,7 +1664,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
   border-radius: 6px;
   padding: 8px 12px;
   min-width: 160px;
@@ -1679,7 +1679,7 @@ onMounted(() => {
 .global-item-card .item-name {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1688,7 +1688,7 @@ onMounted(() => {
 
 .global-item-card .item-freq {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-family: monospace;
 }
 
@@ -1703,7 +1703,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-card);
   border-radius: 4px;
 }
 
@@ -1715,7 +1715,7 @@ onMounted(() => {
 .player-item-row .fav-player-name {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   min-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1724,13 +1724,13 @@ onMounted(() => {
 
 .player-item-row .fav-item-name {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-secondary);
   flex: 1;
 }
 
 .player-item-row .fav-count {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
   font-family: monospace;
   flex-shrink: 0;
 }
@@ -1740,7 +1740,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-card);
   border-radius: 8px;
   padding: 24px 24px;
 }
@@ -1757,7 +1757,7 @@ onMounted(() => {
 .abw-divider {
   width: 1px;
   height: 100px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-section);
   flex-shrink: 0;
 }
 
@@ -1787,24 +1787,24 @@ onMounted(() => {
 .abw-name {
   font-size: 15px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
 }
 
 .abw-value {
   font-size: 28px;
   font-weight: 800;
   font-family: monospace;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .abw-meta {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
 }
 
 .empty-hint {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
   padding: 16px;
   text-align: center;
 }
@@ -1819,10 +1819,10 @@ onMounted(() => {
 .aug-pop-title {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   margin-bottom: 6px;
   padding-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .aug-pop-row {
@@ -1833,11 +1833,11 @@ onMounted(() => {
 }
 
 .aug-pop-name {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
 }
 
 .aug-pop-count {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   font-family: monospace;
 }
 
@@ -1849,13 +1849,13 @@ onMounted(() => {
 .player-item-row .aug-name {
   font-size: 15px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
 }
 
 .player-item-row .aug-freq {
   font-size: 14px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
 }
 
 /* ── 英雄池样式 ── */
@@ -1878,12 +1878,12 @@ onMounted(() => {
 .champ-name-main {
   font-size: 16px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-primary);
 }
 
 .champ-meta {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .win-green {
@@ -1901,7 +1901,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   min-width: 52px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
   border-radius: 8px;
   padding: 6px 10px;
 }
@@ -1916,7 +1916,7 @@ onMounted(() => {
 
 .pool-badge-label {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.5px;

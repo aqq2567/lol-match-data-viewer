@@ -334,7 +334,7 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #1a1a1d;
+  background-color: var(--bg-primary);
 }
 
 .empty-state {
@@ -346,10 +346,10 @@ onUnmounted(() => {
 
 .empty-content {
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
   h3 {
     margin: 16px 0 8px;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-secondary);
   }
   p {
     margin-bottom: 24px;
@@ -381,14 +381,14 @@ onUnmounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--bg-hover);
   flex-shrink: 0;
 }
 
 .summoner-name {
   font-weight: 600;
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
 .summoner-actions {
@@ -399,7 +399,7 @@ onUnmounted(() => {
 
 .meta-text {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
 }
 
 /* ── 双栏主内容区 ── */
@@ -432,15 +432,15 @@ onUnmounted(() => {
   align-items: center;
   height: 200px;
   width: 740px;
-  color: rgba(255, 255, 255, 0.25);
-  background-color: rgba(255, 255, 255, 0.02);
+  color: var(--text-muted);
+  background-color: var(--bg-card);
   border-radius: 4px;
 }
 
 /* ── 左侧分页控件 ── */
 .section {
   padding: 8px 16px;
-  background-color: #ffffff10;
+  background-color: var(--section-color);
   border-radius: 4px;
   margin-bottom: 8px;
 }
@@ -450,7 +450,7 @@ onUnmounted(() => {
   align-items: center;
   font-size: 16px;
   font-weight: bold;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
@@ -470,17 +470,17 @@ onUnmounted(() => {
   padding: 0 8px;
   height: 28px;
   font-size: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--btn-border);
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--btn-bg);
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
 
   &:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
+    background: var(--btn-hover-bg);
+    color: var(--text-primary);
   }
 
   &:disabled {

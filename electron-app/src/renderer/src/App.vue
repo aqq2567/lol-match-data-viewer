@@ -115,7 +115,7 @@ function importJson() {
   flex-direction: column;
   min-width: var(--app-min-width);
   min-height: var(--app-min-height);
-  background-color: var(--background-color-primary);
+  background-color: var(--stable-bg);
 
   > #app-content {
     z-index: 5;

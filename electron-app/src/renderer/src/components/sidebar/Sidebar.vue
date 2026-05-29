@@ -76,7 +76,7 @@ watchEffect(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #0001;
+  background-color: var(--sidebar-bg);
 
   .padding-zone {
     flex: 1;

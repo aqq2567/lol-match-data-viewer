@@ -18,8 +18,98 @@
   --scroll-bar-width: 8px;
 }
 
+/* ═══ 暗色主题（默认） ═══ */
 [data-theme='dark'] {
+  --bg-primary: #1a1a1d;
+  --bg-secondary: rgba(24, 24, 30, 0.9);
+  --bg-section: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --text-primary: rgba(255, 255, 255, 0.9);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-tertiary: rgba(255, 255, 255, 0.35);
+  --text-muted: rgba(255, 255, 255, 0.25);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --divider-color: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: rgba(0, 0, 0, 0.067);
+  --header-bg: rgba(24, 24, 30, 0.9);
+  --scrollbar-thumb: #4c4c4c;
+  --scrollbar-thumb-hover: #626262;
+  --btn-bg: rgba(255, 255, 255, 0.06);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --btn-hover-bg: rgba(255, 255, 255, 0.1);
+  --win-color: #5ca9f1;
+  --lose-color: #e96025;
+  --section-color: #ffffff10;
+  --stable-bg: var(--bg-primary);
   --background-color-primary: #1a1a1d;
+  --card-win-bg: #212b41e0;
+  --card-lose-bg: #4b2c31e0;
+  --card-remake-bg: #363636cc;
+  --card-base-bg: #28344e;
+  --checkbox-win-bg: #2f436e;
+  --checkbox-lose-bg: #703c47;
+  --checkbox-remake-bg: #797979;
+  --card-divider: rgb(91, 91, 91);
+  --card-text-secondary: rgb(159, 159, 159);
+  --card-text-primary: rgb(220, 220, 220);
+  --card-text-player: rgb(187, 187, 187);
+  --kda-k-color: rgb(68, 160, 246);
+  --kda-d-color: rgb(200, 81, 30);
+  --kda-a-color: rgb(159, 159, 159);
+  --card-win-border: #5383e8;
+  --card-lose-border: #9e3001;
+  --card-remake-border: #8b8b8b;
+  --card-win-text: #5ca9f1;
+  --card-lose-text: #e96025;
+  --card-remake-text: #d1d1d1;
+}
+
+/* ═══ 亮色主题 ═══ */
+[data-theme='light'] {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: rgba(255, 255, 255, 0.95);
+  --bg-section: rgba(0, 0, 0, 0.04);
+  --bg-hover: rgba(0, 0, 0, 0.06);
+  --bg-card: rgba(0, 0, 0, 0.02);
+  --text-primary: rgba(0, 0, 0, 0.85);
+  --text-secondary: rgba(0, 0, 0, 0.55);
+  --text-tertiary: rgba(0, 0, 0, 0.35);
+  --text-muted: rgba(0, 0, 0, 0.2);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --divider-color: rgba(0, 0, 0, 0.1);
+  --sidebar-bg: rgba(0, 0, 0, 0.02);
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #a0a0a0;
+  --btn-bg: rgba(0, 0, 0, 0.04);
+  --btn-border: rgba(0, 0, 0, 0.12);
+  --btn-hover-bg: rgba(0, 0, 0, 0.08);
+  --win-color: #3b6fd4;
+  --lose-color: #d45520;
+  --section-color: #00000008;
+  --stable-bg: #f0f2f5;
+  --background-color-primary: #f0f2f5;
+  --card-win-bg: #e8f0ffe0;
+  --card-lose-bg: #fff0f0e0;
+  --card-remake-bg: #f2f2f2cc;
+  --card-base-bg: #e8edf5;
+  --checkbox-win-bg: #d0e0f8;
+  --checkbox-lose-bg: #f0d0d0;
+  --checkbox-remake-bg: #d0d0d0;
+  --card-divider: #c0c0c0;
+  --card-text-secondary: rgb(100, 100, 100);
+  --card-text-primary: rgb(40, 40, 40);
+  --card-text-player: rgb(80, 80, 80);
+  --kda-k-color: rgb(40, 120, 220);
+  --kda-d-color: rgb(200, 70, 30);
+  --kda-a-color: rgb(100, 100, 100);
+  --card-win-border: #5383e8;
+  --card-lose-border: #e05050;
+  --card-remake-border: #999999;
+  --card-win-text: #3b6fd4;
+  --card-lose-text: #d45520;
+  --card-remake-text: #666666;
 }
 
 ::-webkit-scrollbar {
@@ -28,11 +118,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #4c4c4c;
+  background-color: var(--scrollbar-thumb);
   border-radius: 0px;
 
   &:hover {
-    background-color: #626262;
+    background-color: var(--scrollbar-thumb-hover);
   }
 }
 
@@ -49,6 +139,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
     sans-serif;
+  background-color: var(--bg-primary);
 }
 
 /* Naive UI 微调 */

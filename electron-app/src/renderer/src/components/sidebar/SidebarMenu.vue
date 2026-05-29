@@ -156,6 +156,29 @@ watch(
   }
 }
 
+[data-theme='light'] {
+  .menu-item {
+    &:hover .menu-item-icon {
+      color: #000;
+    }
+    &:hover .menu-item-inner {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+    &:active .menu-item-icon {
+      color: rgba(0, 0, 0, 0.9);
+    }
+    .menu-item-icon {
+      color: rgba(0, 0, 0, 0.45);
+    }
+    &.active .menu-item-icon {
+      color: #000;
+    }
+    &.active .menu-item-inner {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+  }
+}
+
 .menu-item-popover {
   font-weight: bold;
   font-size: 14px;
