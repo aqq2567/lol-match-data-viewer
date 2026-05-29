@@ -294,7 +294,7 @@ export async function fetchMatchList(
   const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
   const totalGames: number = firstMeta.gameCount || 0
   // 不依赖 gameCount 作为硬上限（国服 gameCount 仅为缓存大小 ≈21），
-  // 以 MAX_FETCH_COUNT 为安全阀，持续拉取直到 API 返回空
+  // 以 MAX_FETCH_COUNT 为安全阀，持续拉取直到 API 返回空或返回重复数据
   const targetCount = MAX_FETCH_COUNT
 
   console.log(
@@ -303,12 +303,21 @@ export async function fetchMatchList(
   )
 
   // ═══ 第二步：分页拉取剩余的摘要数据 ═══
-  const allSummaries: any[] = [...firstGames]
+  const seenIds = new Set<number>()
+  const allSummaries: any[] = []
   const detailMap = new Map<number, any>()
 
+  for (const g of firstGames) {
+    if (!seenIds.has(g.gameId)) {
+      seenIds.add(g.gameId)
+      allSummaries.push(g)
+    }
+  }
+
+  let cursor = PAGE_SIZE // 下一页的 begIndex
   while (allSummaries.length < targetCount) {
-    const beg = allSummaries.length
-    const end = Math.min(beg + PAGE_SIZE - 1, targetCount - 1)
+    const beg = cursor
+    const end = beg + PAGE_SIZE - 1
     console.log(`[LCU:MAIN] 继续分页: beg=${beg} end=${end}`)
 
     const { games: pageGames } = await fetchMatchPage(client, puuid, beg, end)
@@ -316,7 +325,22 @@ export async function fetchMatchList(
       console.log(`[LCU:MAIN] 分页中断: beg=${beg} 返回空（LCU 无更多数据）`)
       break
     }
-    allSummaries.push(...pageGames)
+
+    let newCount = 0
+    for (const g of pageGames) {
+      if (!seenIds.has(g.gameId)) {
+        seenIds.add(g.gameId)
+        allSummaries.push(g)
+        newCount++
+      }
+    }
+
+    if (newCount === 0) {
+      console.log(`[LCU:MAIN] 分页中断: beg=${beg} 返回全部重复（LCU 缓存已耗尽）`)
+      break
+    }
+
+    cursor += PAGE_SIZE
   }
 
   console.log(`[LCU:MAIN] 分页完成: 共 ${allSummaries.length} 场摘要`)
@@ -524,14 +548,38 @@ export async function fetchMatchListForPlayer(
     `返回${firstGames.length}场 gameCount=${totalGames} target=${targetCount}`
   )
 
-  const allSummaries: any[] = [...firstGames]
+  const seenIds = new Set<number>()
+  const allSummaries: any[] = []
 
+  for (const g of firstGames) {
+    if (!seenIds.has(g.gameId)) {
+      seenIds.add(g.gameId)
+      allSummaries.push(g)
+    }
+  }
+
+  let cursor = PAGE_SIZE
   while (allSummaries.length < targetCount) {
-    const beg = allSummaries.length
-    const end = Math.min(beg + PAGE_SIZE - 1, targetCount - 1)
+    const beg = cursor
+    const end = beg + PAGE_SIZE - 1
     const { games: pageGames } = await fetchMatchPage(client, puuid, beg, end)
     if (pageGames.length === 0) break
-    allSummaries.push(...pageGames)
+
+    let newCount = 0
+    for (const g of pageGames) {
+      if (!seenIds.has(g.gameId)) {
+        seenIds.add(g.gameId)
+        allSummaries.push(g)
+        newCount++
+      }
+    }
+
+    if (newCount === 0) {
+      console.log(`[LCU:MAIN] fetchMatchListForPlayer 分页中断: beg=${beg} 返回全部重复（LCU 缓存已耗尽）`)
+      break
+    }
+
+    cursor += PAGE_SIZE
   }
 
   console.log(`[LCU:MAIN] fetchMatchListForPlayer 分页完成: 共 ${allSummaries.length} 场摘要`)
