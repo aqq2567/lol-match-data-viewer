@@ -260,8 +260,8 @@ const DETAIL_CONCUR = 20
 
 /**
  * 拉取一页对局摘要
- * 优先使用 beginIndex（完整拼写，国服/TENCENT 需要此格式）
- * 返回空时降级 begIndex（Riot 直营服兼容）
+ * 国服 (TENCENT) 使用 begIndex（缩写），Riot 服可能使用 beginIndex（完整拼写）
+ * 先用 begIndex，返回空/报错时降级 beginIndex
  */
 async function fetchMatchPage(
   client: LcuHttpClient,
@@ -269,14 +269,13 @@ async function fetchMatchPage(
   beg: number,
   end: number,
 ): Promise<{ meta: any; games: any[] }> {
-  // 首选 beginIndex（完整拼写）—— 国服 LCU 静默忽略不认识的 begIndex 参数
-  let page = await client.getMatchHistoryAlt(puuid, beg, end)
+  let page = await client.getMatchHistory(puuid, beg, end)
   let games: any[] = page?.games?.games || []
   if (games.length === 0) {
-    page = await client.getMatchHistory(puuid, beg, end)
+    page = await client.getMatchHistoryAlt(puuid, beg, end)
     games = page?.games?.games || []
     if (games.length > 0) {
-      console.log(`[LCU:MAIN] begIndex 降级兼容: beg=${beg} end=${end} → ${games.length} 场`)
+      console.log(`[LCU:MAIN] beginIndex 降级兼容: beg=${beg} end=${end} → ${games.length} 场`)
     }
   }
   return { meta: page?.games || {}, games }

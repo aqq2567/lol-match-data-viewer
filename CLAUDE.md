@@ -1,0 +1,93 @@
+# LOL Match Data Viewer
+
+基于 Electron + Vue 3 的《英雄联盟》比赛数据查看器，通过 LCU（League Client Update）本地 API 获取比赛数据，灵感来源于 LeagueAkari 项目。
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 桌面框架 | Electron 34（electron-vite 构建） |
+| 前端 | Vue 3.5（Composition API + `<script setup>`） + Vue Router 4 + Pinia 2 |
+| UI 组件库 | Naive UI 2.42（暗色主题，中文本地化） |
+| 样式 | Less（作用域样式 + 全局样式） |
+| 构建 | Vite 6 + electron-vite 3 + TypeScript 5.7 |
+| HTTP | Axios（自签名证书 + Basic Auth） |
+| 图标 | @vicons/ionicons5 |
+| 打包 | electron-builder（Windows dir 输出） |
+
+## 目录结构
+
+```
+electron-app/                  # 主应用
+├── src/
+│   ├── main/                  # 主进程：窗口管理、LCU 连接、IPC 处理
+│   │   ├── index.ts           # 入口：BrowserWindow、lcu-asset:// 协议、日志
+│   │   ├── lcu/
+│   │   │   ├── client.ts      # LCU 连接发现 + HTTP 客户端
+│   │   │   └── extractor.ts   # 数据提取与转换（原始 LCU JSON → 应用类型）
+│   │   ├── ipc/lcu-handlers.ts  # IPC 端点
+│   │   └── utils/logger.ts    # 文件日志（按日轮转）
+│   ├── preload/index.ts       # contextBridge：暴露 window.lcuApi
+│   ├── shared/                # 主/渲染进程共享
+│   │   ├── types/
+│   │   │   ├── lcu-api.ts     # LCU API 原始响应类型
+│   │   │   └── app.ts         # 应用层类型
+│   │   └── utils/
+│   │       ├── analysis.ts    # 分析算法（胜率、KDA、英雄/队友频率）
+│   │       └── mappings.ts    # 映射表（队列/段位/地图中文本地化）
+│   └── renderer/src/          # Vue 3 前端
+│       ├── views/             # Panel（布局）、MatchList、AnalysisView、GameDetail
+│       ├── components/        # 比赛卡片、统计面板、侧边栏、标题栏、小部件
+│       ├── stores/game-data.ts  # Pinia：英雄/物品/符文等静态数据缓存
+│       ├── routes/index.ts    # Hash 路由：/panel/matches、/panel/game/:id、/panel/analysis
+│       └── utils/             # format.ts（时间/数字）、lcu-images.ts（lcu-asset:// URL）
+python/                        # Python CLI 配套工具
+├── lcu_client.py              # 独立 LCU 客户端（requests + urllib3）
+├── extract_matches.py         # 批量导出比赛 JSON
+└── fetch_game.py              # 单场比赛查看器
+docs/                          # 文档
+└── DATA_DIMENSIONS.md         # LCU API 170+ 数据维度参考
+```
+
+## 开发命令
+
+所有命令在 `electron-app/` 目录下执行：
+
+```bash
+npm run dev          # 启动开发服务器（electron-vite）
+npm run build        # 生产构建
+npm run typecheck    # TypeScript 类型检查（vue-tsc）
+npm run package      # 构建 + electron-builder 打包（Windows dir）
+npm run preview      # 预览生产构建
+```
+
+## 架构模式
+
+### 数据流
+
+1. 主进程通过 PowerShell `Get-CimInstance Win32_Process` 查找 `LeagueClientUx.exe`，从命令行参数解析 `--app-port` 和 `--remoting-auth-token`
+2. 渲染进程通过 `window.lcuApi`（contextBridge）调用 IPC → 主进程执行 LCU API 请求
+3. 比赛列表获取采用两阶段：先获取摘要，再并行批量加载详情（并发 20），回溯 GameID 发现更多比赛（最多 500 步，100 次连续未命中后停止）
+4. 静态游戏数据（英雄、物品、技能、符文、队列、海克斯强化）通过 `fetchGameData()` 并行加载
+5. 图片通过自定义 `lcu-asset://` 协议代理（并发限制 8），避免 CORS 问题
+6. 比赛中选 ID 通过 `sessionStorage` 跨页面传递
+
+### 关键约定
+
+- **类型系统**：`shared/types/lcu-api.ts` 定义原始 LCU 响应类型，`shared/types/app.ts` 定义应用层转换后类型。新增数据维度时两处都要更新
+- **分析指标**：所有客户端分析在 `shared/utils/analysis.ts` 中实现为纯函数，AnalysisView 通过指标注册表调用
+- **中文本地化**：队列名、段位、地图、游戏模式等映射集中在 `shared/utils/mappings.ts`
+- **日志**：主进程使用 `utils/logger.ts`（文件日志），渲染进程使用 `window.lcuApi.log()`（通过 IPC 写入同一日志文件）
+- **无持久数据库**：比赛数据运行时缓存在 Pinia store 和 Vue 响应式变量中，最多保留 100 场比赛
+- **LeagueAkari 兼容**：架构风格和命名约定参考 LeagueAkari，尽量保持一致性
+
+### 路径别名
+
+- `@main/*` → `src/main/*`
+- `@shared/*` → `src/shared/*`
+- `@/*` → `src/renderer/src/*`
+
+### 构建配置
+
+- electron-builder：`appId: com.lol-match-data.viewer`，`productName: LOL Match Data Viewer`，仅 Windows，dir 目标
+- 开发端口：Vite 渲染进程默认 5173
