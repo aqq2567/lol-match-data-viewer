@@ -247,15 +247,16 @@ export function extractChampionMasteryForGame(
 }
 
 // ═══════════════════════════════════════════════════════════
-// 对局列表（摘要 + 详情补载 + GameID 追溯）
+// 对局列表（分页拉取 + 详情补载）
+// 对标 LeagueAkari：使用 begIndex/endIndex 分页查询，而非 gameId 递减追溯
 // ═══════════════════════════════════════════════════════════
 
-/** 目标拉取的对局数量 */
-const MAX_FETCH_COUNT = 100
+/** 单次 getMatchHistory 请求的游戏数量（每页 100 场） */
+const PAGE_SIZE = 100
+/** 目标拉取的对局总数上限（对齐 LeagueAkari） */
+const MAX_FETCH_COUNT = 1000
 /** 每次并行调用 getGameDetail 的数量 */
 const DETAIL_CONCUR = 20
-/** GameID 追溯的最大尝试步数 */
-const MAX_WALK_STEPS = 500
 
 export async function fetchMatchList(
   client: LcuHttpClient,
@@ -268,29 +269,42 @@ export async function fetchMatchList(
   const summoner = await client.getCurrentSummoner()
   const puuid = summoner.puuid
 
-  // ═══ 第一步：拉取初始对局 + 段位 ═══
+  // ═══ 第一步：拉取初始页 + 段位 ═══
   const ranked = await client.getRankedStats(puuid)
 
-  // 尝试用最大 endIndex 单次拉取（部分区域支持大范围）
-  const initialBatch = await client.getMatchHistory(puuid, 0, MAX_FETCH_COUNT - 1)
-  const initialGames = initialBatch?.games?.games || []
-  const initialMeta = initialBatch?.games || {}
-  let totalGames = initialMeta.gameCount || 0
+  const firstPage = await client.getMatchHistory(puuid, 0, PAGE_SIZE - 1)
+  const firstMeta = firstPage?.games || {}
+  const totalGames: number = firstMeta.gameCount || 0
+  const targetCount = Math.min(totalGames, MAX_FETCH_COUNT)
 
   console.log(
-    `[LCU:MAIN] 初始拉取: endIndex=${MAX_FETCH_COUNT - 1} → ` +
-    `返回${initialGames.length}场 idx=[${initialMeta.gameIndexBegin}-${initialMeta.gameIndexEnd}] gameCount=${totalGames}`
+    `[LCU:MAIN] 初始分页: beg=0 end=${PAGE_SIZE - 1} → ` +
+    `返回${(firstMeta.games || []).length}场 gameCount=${totalGames} target=${targetCount}`
   )
 
-  // 日志：打印响应顶层键，帮助诊断结构差异
-  console.log(`[LCU:MAIN] 响应结构: top-keys=${Object.keys(initialBatch || {}).join(',')}, games-keys=${Object.keys(initialMeta).join(',')}`)
-
-  // ═══ 第二步：补载所有初始对局的详情（获取完整参与者数据） ═══
-  let rawGames: any[] = [...initialGames]
+  // ═══ 第二步：分页拉取剩余的摘要数据 ═══
+  const allSummaries: any[] = [...(firstMeta.games || [])]
   const detailMap = new Map<number, any>()
 
-  for (let i = 0; i < initialGames.length; i += DETAIL_CONCUR) {
-    const batch = initialGames.slice(i, i + DETAIL_CONCUR)
+  while (allSummaries.length < targetCount) {
+    const beg = allSummaries.length
+    const end = Math.min(beg + PAGE_SIZE - 1, targetCount - 1)
+    console.log(`[LCU:MAIN] 继续分页: beg=${beg} end=${end}`)
+
+    const page = await client.getMatchHistory(puuid, beg, end)
+    const pageGames = page?.games?.games || []
+    if (pageGames.length === 0) {
+      console.log(`[LCU:MAIN] 分页中断: beg=${beg} 返回空（LCU 无更多数据）`)
+      break
+    }
+    allSummaries.push(...pageGames)
+  }
+
+  console.log(`[LCU:MAIN] 分页完成: 共 ${allSummaries.length} 场摘要`)
+
+  // ═══ 第三步：并行补载所有对局的详情 ═══
+  for (let i = 0; i < allSummaries.length; i += DETAIL_CONCUR) {
+    const batch = allSummaries.slice(i, i + DETAIL_CONCUR)
     const results = await Promise.all(
       batch.map(g =>
         client.getGameDetail(g.gameId).catch((err: any) => {
@@ -303,10 +317,10 @@ export async function fetchMatchList(
       if (d) detailMap.set(d.gameId, d)
     }
   }
-  console.log(`[LCU:MAIN] 初始详情补载: ${detailMap.size}/${initialGames.length} 场`)
+  console.log(`[LCU:MAIN] 详情补载: ${detailMap.size}/${allSummaries.length} 场`)
 
-  // 用详情数据增强摘要
-  rawGames = initialGames.map(g => {
+  // 用详情增强摘要，缺失详情的保留原始摘要
+  const rawGames = allSummaries.map(g => {
     const detail = detailMap.get(g.gameId)
     if (detail) {
       return {
@@ -318,90 +332,6 @@ export async function fetchMatchList(
     }
     return g
   })
-
-  // ═══ 第三步：GameID 追溯更早对局 ═══
-  if (totalGames > initialGames.length && initialGames.length > 0) {
-    // 找到当前最老的 gameId
-    const gameIds = initialGames.map((g: any) => g.gameId)
-    const oldestId = Math.min(...gameIds)
-    const latestId = Math.max(...gameIds)
-    console.log(
-      `[LCU:MAIN] GameID 追溯: 已有${initialGames.length}场, ` +
-      `totalGames=${totalGames}, ID范围=[${oldestId}, ${latestId}]`
-    )
-
-    const seenIds = new Set(gameIds)
-    let walkedCount = 0
-    let consecutiveMiss = 0
-
-    // 以并行批次向更早的 gameId 追溯
-    while (
-      seenIds.size < Math.min(totalGames, MAX_FETCH_COUNT) &&
-      walkedCount < MAX_WALK_STEPS &&
-      consecutiveMiss < 100 // 连续 100 次未命中则停止
-    ) {
-      const candidateIds: number[] = []
-      for (let j = 0; j < DETAIL_CONCUR && walkedCount < MAX_WALK_STEPS; j++) {
-        walkedCount++
-        const cid = oldestId - walkedCount
-        if (cid <= 0) break
-        if (!seenIds.has(cid)) {
-          candidateIds.push(cid)
-        }
-      }
-
-      if (candidateIds.length === 0) break
-
-      const batchResults = await Promise.all(
-        candidateIds.map(id =>
-          client.getGameDetail(id).catch((err: any) => {
-            console.warn(`[LCU:MAIN] GameID追溯 #${id} 详情获取失败: ${err.message || err}`)
-            return null
-          })
-        )
-      )
-
-      let foundInBatch = 0
-      for (let j = 0; j < candidateIds.length; j++) {
-        const detail = batchResults[j]
-        if (!detail) {
-          consecutiveMiss++
-          continue
-        }
-        // 检查当前召唤师是否参与此对局
-        const hasPlayer = (detail.participants || []).some((p: any) => {
-          const player = (detail.participantIdentities || []).find(
-            (pi: any) => pi.participantId === p.participantId
-          )
-          return player?.player?.puuid === puuid
-        })
-
-        if (hasPlayer) {
-          foundInBatch++
-          consecutiveMiss = 0
-          const gid = candidateIds[j]
-          seenIds.add(gid)
-          detailMap.set(gid, detail)
-          rawGames.push({
-            ...detail,
-            gameId: gid,
-          })
-        } else {
-          consecutiveMiss++
-        }
-      }
-
-      if (foundInBatch > 0) {
-        console.log(
-          `[LCU:MAIN] GameID追溯 批次${Math.floor(walkedCount / DETAIL_CONCUR)}: ` +
-          `命中${foundInBatch}场 累积${seenIds.size}场`
-        )
-      }
-    }
-    console.log(`[LCU:MAIN] GameID追溯完成: 共${seenIds.size}场 步数=${walkedCount}`)
-  }
-
-  if (!totalGames) totalGames = rawGames.length
 
   // 按 gameCreation 降序排列（最新的在前）
   rawGames.sort((a, b) => {

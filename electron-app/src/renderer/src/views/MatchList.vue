@@ -210,9 +210,8 @@ async function loadPage(page: number) {
     console.log(`[LCU:MATCHLIST] 已在第 ${page} 页，无需翻页`)
     return
   }
-  console.log(`[LCU:MATCHLIST] 翻页: ${currentPage.value} → ${page} (前端分页)`)
+  console.log(`[LCU:MATCHLIST] 翻页: ${currentPage.value} → ${page} (前端分页)` + `, 已选中 ${checkedRowKeys.value.length} 场`)
   currentPage.value = page
-  checkedRowKeys.value = []
 }
 
 /**

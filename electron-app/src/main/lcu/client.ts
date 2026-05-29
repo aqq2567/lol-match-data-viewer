@@ -50,17 +50,67 @@ function runPsScript(script: string, timeout: number): string {
 /** 通过 PowerShell 查找 LeagueClientUx.exe 进程并解析连接参数 */
 export function findLolClient(): LcuConnectionInfo | null {
   try {
-    const cmdline = runPsScript(`
-      $p = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'LeagueClientUx.exe' } | Select-Object -ExpandProperty CommandLine
-      if (-not $p) {
-        $p = Get-WmiObject Win32_Process | Where-Object { $_.Name -eq 'LeagueClientUx.exe' } | Select-Object -ExpandProperty CommandLine
+    // ═══ 首选方案：通过 lockfile 读取（无需 admin 权限）═════
+    const lockfileResult = runPsScript(`
+      $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
+      if (-not $p) { exit }
+      try {
+        $dir = Split-Path $p.Path -Parent -ErrorAction Stop
+        $lf = Join-Path $dir 'lockfile'
+        if (Test-Path $lf) {
+          Get-Content $lf -Raw
+        }
+      } catch {}
+    `, PS_EXEC_TIMEOUT)
+
+    if (lockfileResult) {
+      // lockfile 格式: LeagueClientUx:pid:port:authToken:https
+      const parts = lockfileResult.trim().split(':')
+      if (parts.length >= 4) {
+        const pid = parseInt(parts[1]) || 0
+        const port = parseInt(parts[2]) || 0
+        const authToken = parts[3]
+        if (port && authToken) {
+          console.log(`[LCU:MAIN] 检测到 LCU (lockfile): port=${port}, pid=${pid}`)
+
+          // 尝试从进程中获取 region / rsoPlatformId（可选，仅用于信息展示）
+          const extraInfo = runPsScript(`
+            $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" | Select-Object -ExpandProperty CommandLine) 2>$null
+            if (-not $cmdline) { $cmdline = (Get-WmiObject Win32_Process -Filter "ProcessId = ${pid}" | Select-Object -ExpandProperty CommandLine) 2>$null }
+            $cmdline
+          `, 4000)
+
+          const extract = (pattern: string): string => {
+            const m = extraInfo.match(pattern)
+            return m ? m[1] : ''
+          }
+
+          return {
+            port,
+            authToken,
+            pid,
+            region: extract(/--region=([\w\-_]+)/),
+            rsoPlatformId: extract(/--rso_platform_id=([\w\-_]+)/),
+          }
+        }
       }
-      $p
+    }
+
+    // ═══ 回退方案：通过进程命令行解析（部分系统需 admin 权限）═════
+    const cmdline = runPsScript(`
+      $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
+      if (-not $p) { exit }
+      $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = $($p.Id)" | Select-Object -ExpandProperty CommandLine)
+      if (-not $cmdline) {
+        $cmdline = (Get-WmiObject Win32_Process -Filter "ProcessId = $($p.Id)" | Select-Object -ExpandProperty CommandLine)
+      }
+      $cmdline
     `, PS_EXEC_TIMEOUT)
 
     if (!cmdline) {
-      // 首次未找到时输出所有 League 相关进程名称，辅助诊断不同地区/版本客户端的进程名差异
+      // 输出进程名辅助诊断
       const diagResult = runPsScript(`
+        Get-Process -Name '*League*','*LOL*','*Riot*' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name -Unique
         Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*League*' -or $_.Name -like '*LOL*' -or $_.Name -like '*英雄联盟*' -or $_.Name -like '*Riot*' } | Select-Object -ExpandProperty Name | Sort-Object -Unique
       `, 8000)
 
@@ -84,7 +134,7 @@ export function findLolClient(): LcuConnectionInfo | null {
       return null
     }
 
-    console.log(`[LCU:MAIN] 检测到 LCU: port=${port}, region=${extract(/--region=([\w\-_]+)/)}`)
+    console.log(`[LCU:MAIN] 检测到 LCU (cmdline): port=${port}, region=${extract(/--region=([\w\-_]+)/)}`)
     return {
       port: parseInt(port),
       authToken,

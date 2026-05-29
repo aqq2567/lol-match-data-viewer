@@ -190,6 +190,58 @@
               </div>
             </template>
 
+            <!-- ═══ 英雄池分析：独立 UI ═══ -->
+            <template v-else-if="selectedMetric === 'championPool'">
+              <div class="items-section">
+                <h4>全局热门英雄 TOP 10</h4>
+                <div class="global-items-grid">
+                  <n-popover v-for="champ in globalChampionFreq" :key="champ.championId" trigger="hover" placement="top" :show-arrow="false">
+                    <template #trigger>
+                      <div class="global-item-card">
+                        <LcuImage :src="championIconUrl(champ.championId)" :size="48" />
+                        <div class="item-info">
+                          <span class="item-name">{{ champ.name }}</span>
+                          <span class="item-freq">{{ champ.count }}次</span>
+                        </div>
+                      </div>
+                    </template>
+                    <div class="aug-popover-players">
+                      <div class="aug-pop-title">使用过此英雄的玩家</div>
+                      <div v-for="u in getChampionUsers(champ.championId)" :key="u.playerName" class="aug-pop-row">
+                        <span class="aug-pop-name">{{ shortName(u.playerName) }}</span>
+                        <span class="aug-pop-count">{{ u.count }}次</span>
+                      </div>
+                    </div>
+                  </n-popover>
+                  <div v-if="globalChampionFreq.length === 0" class="empty-hint">无英雄数据</div>
+                </div>
+              </div>
+
+              <div class="items-section">
+                <h4>各玩家最常用英雄</h4>
+                <div class="player-items-list">
+                  <div v-for="p in playerChampionPools" :key="p.playerName" class="player-item-row champ-row">
+                    <LcuImage :src="profileIconUrl(p.profileIconId)" :size="28" class="fav-avatar" />
+                    <span class="fav-player-name champ-player">{{ shortName(p.playerName) }}</span>
+                    <LcuImage :src="championIconUrl(p.mostPlayedChampionId)" :size="44" />
+                    <div class="champ-mid-col">
+                      <span class="champ-name-main">{{ gds.champions[p.mostPlayedChampionId]?.name || '英雄#' + p.mostPlayedChampionId }}</span>
+                      <span class="champ-meta">
+                        {{ p.mostPlayedChampionCount }}/{{ p.totalGames }}局 ·
+                        选取率{{ (p.mostPlayedChampionCount / p.totalGames * 100).toFixed(0) }}%
+                        · 胜率<span :class="p.favChampWins / p.mostPlayedChampionCount >= 0.5 ? 'win-green' : 'win-red'">{{ (p.favChampWins / p.mostPlayedChampionCount * 100).toFixed(0) }}%</span>
+                      </span>
+                    </div>
+                    <div class="champ-pool-badge">
+                      <span class="pool-badge-num">{{ p.uniqueChampions }}</span>
+                      <span class="pool-badge-label">英雄池</span>
+                    </div>
+                  </div>
+                  <div v-if="playerChampionPools.length === 0" class="empty-hint">暂无英雄数据</div>
+                </div>
+              </div>
+            </template>
+
             <!-- ═══ 高阶数据：首末名 + 排名表 ═══ -->
             <template v-else-if="isAdvancedMetric(selectedMetric)">
               <!-- 首末名卡片 -->
@@ -413,11 +465,14 @@ const statCategories: StatCategoryDef[] = [
   { key: 'combatScore', label: '战斗评分', colorClass: 'cat-purple', getter: (s) => s.scores.combat, fmt: (v) => fmtNum(v) },
   { key: 'items', label: '装备', colorClass: 'cat-gold', getter: () => 0, fmt: () => '' },
   { key: 'augments', label: '海克斯', colorClass: 'cat-purple', getter: () => 0, fmt: () => '' },
+  { key: 'championPool', label: '英雄池', colorClass: 'cat-blue', getter: () => 0, fmt: () => '' },
 ]
 
 /** 高阶数据指标定义 */
 const advancedCategories: StatCategoryDef[] = [
   { key: 'dmgPerGold', label: '伤害/经济', colorClass: 'cat-red', getter: (s) => s.damage.total_to_champs / Math.max(s.economy.gold_earned, 1), fmt: (v) => v.toFixed(2) },
+  { key: 'dmgPerKill', label: '伤害/击杀', colorClass: 'cat-orange', getter: (s) => s.damage.total_to_champs / Math.max(s.kills, 1), fmt: (v) => fmtNum(v) },
+  { key: 'dmgPerDeath', label: '伤害/死亡', colorClass: 'cat-purple', getter: (s) => s.damage.total_to_champs / Math.max(s.deaths, 1), fmt: (v) => fmtNum(v) },
 ]
 
 /** 高阶数据指标 */
@@ -486,6 +541,8 @@ interface MetricRankEntry {
   gameCount: number
   winCount: number
   winRate: number
+  /** 高阶指标原始数据（可选） */
+  raw?: { label: string; value: number }[]
 }
 
 /** 当前选中指标的玩家排名（按总计降序） */
@@ -523,24 +580,25 @@ const metricRanking = computed<MetricRankEntry[]>(() => {
     .sort((a, b) => b.total - a.total)
 })
 
-/** 高阶指标排名（按总计/总量 而非单局均值聚合） */
+/** 高阶指标排名（按总量比值聚合，而非单局均值简单平均） */
 const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   const games = (window as any).__analysisGames as GameRecord[] | undefined
   if (!games || !selectedCategory.value || !isAdvancedMetric(selectedMetric.value)) return []
 
   const key = selectedMetric.value
-  // 按玩家汇总原始数据
-  const playerData = new Map<string, { totalDmg: number; totalGold: number; profileIconId: number; gameCount: number; winCount: number }>()
+  const playerData = new Map<string, { totalDmg: number; totalGold: number; totalKills: number; totalDeaths: number; profileIconId: number; gameCount: number; winCount: number }>()
 
   for (const g of games) {
     for (const p of [...g.blue_team.players, ...g.red_team.players]) {
       const name = p.summoner_name
       if (!playerData.has(name)) {
-        playerData.set(name, { totalDmg: 0, totalGold: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
+        playerData.set(name, { totalDmg: 0, totalGold: 0, totalKills: 0, totalDeaths: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
       }
       const d = playerData.get(name)!
       d.totalDmg += p.stats.damage.total_to_champs
       d.totalGold += p.stats.economy.gold_earned
+      d.totalKills += p.stats.kills
+      d.totalDeaths += p.stats.deaths
       d.gameCount++
       if (p.stats.win) d.winCount++
     }
@@ -548,7 +606,30 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
 
   return Array.from(playerData.entries())
     .map(([name, d]) => {
-      const ratio = d.totalGold > 0 ? d.totalDmg / d.totalGold : 0
+      let ratio: number
+      let raw: { label: string; value: number }[]
+      if (key === 'dmgPerGold') {
+        ratio = d.totalGold > 0 ? d.totalDmg / d.totalGold : 0
+        raw = [
+          { label: '总伤害', value: d.totalDmg },
+          { label: '总经济', value: d.totalGold },
+        ]
+      } else if (key === 'dmgPerKill') {
+        ratio = d.totalKills > 0 ? d.totalDmg / d.totalKills : 0
+        raw = [
+          { label: '总伤害', value: d.totalDmg },
+          { label: '总击杀', value: d.totalKills },
+        ]
+      } else if (key === 'dmgPerDeath') {
+        ratio = d.totalDeaths > 0 ? d.totalDmg / d.totalDeaths : 0
+        raw = [
+          { label: '总伤害', value: d.totalDmg },
+          { label: '总死亡', value: d.totalDeaths },
+        ]
+      } else {
+        ratio = 0
+        raw = []
+      }
       return {
         playerName: name,
         profileIconId: d.profileIconId,
@@ -557,6 +638,7 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
         gameCount: d.gameCount,
         winCount: d.winCount,
         winRate: (d.winCount / d.gameCount) * 100,
+        raw,
       }
     })
     .sort((a, b) => b.total - a.total)
@@ -576,7 +658,7 @@ const firstPlaceTitle = computed(() => {
     largestCrit:'艺术就是核爆',
     heal:"奶一口奶一口奶一口",
     selfMitigated:'不疼',
-    gold:'刷刷刷刷刷',
+    gold:'大富翁',
     cs:'Choooooooooovy!',
     cc:'就是折磨就是胶粘',
     ccDealt:'让我动一下',
@@ -592,6 +674,8 @@ const firstPlaceTitle = computed(() => {
 const advancedBestTitle = computed(() => {
   const map: Record<string, string> = {
     dmgPerGold: '吃草挤奶',
+    dmgPerKill: 'K头有用',
+    dmgPerDeath: '自爆卡车',
   }
   return selectedMetric.value ? (map[selectedMetric.value] || '最佳') : '最佳'
 })
@@ -599,6 +683,8 @@ const advancedBestTitle = computed(() => {
 const advancedWorstTitle = computed(() => {
   const map: Record<string, string> = {
     dmgPerGold: '吃奶挤草',
+    dmgPerKill: 'Kobe',
+    dmgPerDeath: '其实我是辅助',
   }
   return selectedMetric.value ? (map[selectedMetric.value] || '最末') : '最末'
 })
@@ -746,6 +832,117 @@ const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
     })
     .filter(p => p.itemId > 0)
 })
+
+interface PlayerChampionPool {
+  playerName: string
+  profileIconId: number
+  uniqueChampions: number
+  mostPlayedChampionId: number
+  mostPlayedChampionCount: number
+  favChampWins: number
+  totalGames: number
+  winCount: number
+}
+
+const playerChampionPools = computed<PlayerChampionPool[]>(() => {
+  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  if (!games || games.length === 0) return []
+
+  const playerChamps = new Map<string, Map<number, { count: number; wins: number }>>()
+  const playerMeta = new Map<string, { profileIconId: number; totalGames: number; winCount: number }>()
+
+  for (const g of games) {
+    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
+      const name = p.summoner_name
+      if (!playerChamps.has(name)) {
+        playerChamps.set(name, new Map())
+        playerMeta.set(name, { profileIconId: p.profile_icon_id, totalGames: 0, winCount: 0 })
+      }
+      const meta = playerMeta.get(name)!
+      meta.totalGames++
+      if (p.stats.win) meta.winCount++
+      const champMap = playerChamps.get(name)!
+      const entry = champMap.get(p.champion_id) || { count: 0, wins: 0 }
+      entry.count++
+      if (p.stats.win) entry.wins++
+      champMap.set(p.champion_id, entry)
+    }
+  }
+
+  return Array.from(playerChamps.entries())
+    .map(([name, champMap]) => {
+      let bestId = 0
+      let bestCount = 0
+      let bestWins = 0
+      for (const [id, { count, wins }] of champMap) {
+        if (count > bestCount || (count === bestCount && id < bestId)) {
+          bestCount = count
+          bestWins = wins
+          bestId = id
+        }
+      }
+      const meta = playerMeta.get(name)!
+      return {
+        playerName: name,
+        profileIconId: meta.profileIconId,
+        uniqueChampions: champMap.size,
+        mostPlayedChampionId: bestId,
+        mostPlayedChampionCount: bestCount,
+        favChampWins: bestWins,
+        totalGames: meta.totalGames,
+        winCount: meta.winCount,
+      }
+    })
+    .sort((a, b) => b.uniqueChampions - a.uniqueChampions)
+})
+
+interface GlobalChampFreq {
+  championId: number
+  count: number
+  name: string
+}
+
+/** 全局英雄选取频次 TOP 10（所有对局所有玩家） */
+const globalChampionFreq = computed<GlobalChampFreq[]>(() => {
+  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  if (!games || games.length === 0) return []
+
+  const countMap = new Map<number, number>()
+  for (const g of games) {
+    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
+      const cid = p.champion_id
+      if (cid && cid > 0) {
+        countMap.set(cid, (countMap.get(cid) || 0) + 1)
+      }
+    }
+  }
+
+  return Array.from(countMap.entries())
+    .map(([championId, count]) => ({
+      championId,
+      count,
+      name: gds.champions[championId]?.name || `英雄#${championId}`,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+})
+
+/** 查询某个英雄被哪些玩家使用过（用于热门榜悬浮弹窗） */
+function getChampionUsers(championId: number): { playerName: string; count: number }[] {
+  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  if (!games) return []
+  const playerCount = new Map<string, number>()
+  for (const g of games) {
+    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
+      if (p.champion_id === championId) {
+        playerCount.set(p.summoner_name, (playerCount.get(p.summoner_name) || 0) + 1)
+      }
+    }
+  }
+  return Array.from(playerCount.entries())
+    .map(([playerName, count]) => ({ playerName, count }))
+    .sort((a, b) => b.count - a.count)
+}
 
 /** 全局增幅频次（所有对局所有玩家，排除 0） */
 const globalAugmentFreq = computed(() => {
@@ -1021,37 +1218,60 @@ const rankingColumns = computed(() => [
   },
 ])
 
-/** 高阶数据排名表列定义（无「场均」列，因比值为聚合计算） */
-const advancedRankingColumns = computed(() => [
-  {
-    title: '#',
-    key: 'rank',
-    width: 48,
-    render: (_row: MetricRankEntry, idx: number) =>
-      h('span', { style: idx === 0 ? 'font-weight:700;color:#e8a840;font-size:14px' : idx === advancedMetricRanking.value.length - 1 ? 'font-weight:700;color:#e84057;font-size:14px' : 'color:rgba(255,255,255,0.4);font-size:14px' }, String(idx + 1)),
-  },
-  {
-    title: '玩家',
-    key: 'playerName',
-    width: 150,
-    render: (row: MetricRankEntry) =>
-      h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.playerName)),
-  },
-  {
-    title: '比值',
-    key: 'total',
-    width: 100,
-    render: (row: MetricRankEntry) =>
-      h('span', { style: 'font-weight:700;font-family:monospace;font-size:14px' }, selectedCategory.value?.fmt(row.total) || row.total.toFixed(2)),
-  },
-  { title: '场次', key: 'gameCount', width: 60 },
-  {
-    title: '胜率',
-    key: 'winRate',
-    width: 70,
-    render: (row: MetricRankEntry) => h('span', { style: 'font-size:14px' }, `${row.winRate.toFixed(0)}%`),
-  },
-])
+/** 高阶数据排名表列（比值 + 原始数据列） */
+const advancedRankingColumns = computed(() => {
+  const cols: any[] = [
+    {
+      title: '#',
+      key: 'rank',
+      width: 48,
+      render: (_row: MetricRankEntry, idx: number) =>
+        h('span', { style: idx === 0 ? 'font-weight:700;color:#e8a840;font-size:14px' : idx === advancedMetricRanking.value.length - 1 ? 'font-weight:700;color:#e84057;font-size:14px' : 'color:rgba(255,255,255,0.4);font-size:14px' }, String(idx + 1)),
+    },
+    {
+      title: '玩家',
+      key: 'playerName',
+      width: 140,
+      render: (row: MetricRankEntry) =>
+        h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.playerName)),
+    },
+    {
+      title: '比值',
+      key: 'total',
+      width: 90,
+      render: (row: MetricRankEntry) =>
+        h('span', { style: 'font-weight:700;font-family:monospace;font-size:14px' }, selectedCategory.value?.fmt(row.total) || row.total.toFixed(2)),
+    },
+  ]
+
+  // 动态追加原始数据列
+  const first = advancedMetricRanking.value[0]
+  if (first?.raw) {
+    for (const r of first.raw) {
+      cols.push({
+        title: r.label,
+        key: `raw-${r.label}`,
+        width: 90,
+        render: (row: MetricRankEntry) => {
+          const rawItem = row.raw?.find(x => x.label === r.label)
+          return h('span', { style: 'font-family:monospace;font-size:13px;color:rgba(255,255,255,0.65)' }, rawItem ? fmtNum(rawItem.value) : '-')
+        },
+      })
+    }
+  }
+
+  cols.push(
+    { title: '场次', key: 'gameCount', width: 55 },
+    {
+      title: '胜率',
+      key: 'winRate',
+      width: 65,
+      render: (row: MetricRankEntry) => h('span', { style: 'font-size:14px' }, `${row.winRate.toFixed(0)}%`),
+    },
+  )
+
+  return cols
+})
 
 onMounted(() => {
   loadAnalysis()
@@ -1636,5 +1856,69 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── 英雄池样式 ── */
+.player-item-row.champ-row {
+  padding: 10px 14px;
+}
+
+.champ-player {
+  font-size: 14px;
+  min-width: 110px;
+}
+
+.champ-mid-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.champ-name-main {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.champ-meta {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.win-green {
+  color: #2ea86c;
+  font-weight: 700;
+}
+
+.win-red {
+  color: #e84057;
+  font-weight: 700;
+}
+
+.champ-pool-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.pool-badge-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: #3c8cd0;
+  font-family: monospace;
+  line-height: 1;
+}
+
+.pool-badge-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 </style>
