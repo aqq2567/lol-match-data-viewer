@@ -285,9 +285,12 @@ const MAX_CONSECUTIVE_MISSES = 100
  * gameId 回溯降级：从最小 gameId 递减逐个尝试 getGameDetail
  * 绕过 LCU match-history 缓存限制，发现更多历史对局
  * 回溯到的对局同时加入 allSummaries 和 detailMap（已持有完整详情）
+ * 重要：必须校验 targetPuuid 是否参与了该对局，gameId 是全球唯一的，
+ * 递减得到的对局可能属于其他玩家
  */
 async function backtrackGameIds(
   client: LcuHttpClient,
+  targetPuuid: string,
   allSummaries: any[],
   detailMap: Map<number, any>,
   seenIds: Set<number>,
@@ -318,18 +321,29 @@ async function backtrackGameIds(
     const detail = await client.getGameDetail(cursor).catch(() => null)
 
     if (detail && detail.gameId && !seenIds.has(detail.gameId)) {
-      seenIds.add(detail.gameId)
-      allSummaries.push(detail)
-      detailMap.set(detail.gameId, detail)
-      found++
-      consecutiveMisses = 0
+      // 校验目标玩家是否参与了这场对局（gameId 全球唯一，可能属于其他玩家）
+      const identities: any[] = detail.participantIdentities || []
+      const isParticipant = identities.some(
+        (pi: any) => pi.player?.puuid === targetPuuid
+      )
+
+      if (isParticipant) {
+        seenIds.add(detail.gameId)
+        allSummaries.push(detail)
+        detailMap.set(detail.gameId, detail)
+        found++
+        consecutiveMisses = 0
+      } else {
+        // 对局存在但不属于目标玩家，视为未命中
+        consecutiveMisses++
+      }
     } else {
       consecutiveMisses++
     }
 
     if (step > 0 && step % 100 === 0) {
       console.log(
-        `[LCU:MAIN] 回溯进度: step=${step} found=${found} current=${cursor}`
+        `[LCU:MAIN] 回溯进度: step=${step} found=${found} current=${cursor} misses=${consecutiveMisses}`
       )
     }
 
@@ -411,7 +425,7 @@ export async function fetchMatchList(
   console.log(`[LCU:MAIN] 分页完成: 共 ${allSummaries.length} 场摘要`)
 
   // ═══ 2.5：gameId 回溯 —— 绕过 LCU 缓存限制发现更多对局 ═══
-  await backtrackGameIds(client, allSummaries, detailMap, seenIds, targetCount)
+  await backtrackGameIds(client, puuid, allSummaries, detailMap, seenIds, targetCount)
 
   // 按 gameCreation 降序排列（回溯的对局是更早的，排序后自然在末尾）
   allSummaries.sort((a, b) => {
@@ -664,7 +678,7 @@ export async function fetchMatchListForPlayer(
   const detailMap = new Map<number, any>()
 
   // ═══ gameId 回溯 —— 绕过 LCU 缓存限制发现更多对局 ═══
-  await backtrackGameIds(client, allSummaries, detailMap, seenIds, targetCount)
+  await backtrackGameIds(client, puuid, allSummaries, detailMap, seenIds, targetCount)
 
   allSummaries.sort((a, b) => {
     const ta = a.gameCreationDate ? new Date(a.gameCreationDate).getTime() : (a.gameCreation || 0)
