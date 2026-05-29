@@ -251,10 +251,10 @@ export function extractChampionMasteryForGame(
 // 对标 LeagueAkari：使用 begIndex/endIndex 分页查询，而非 gameId 递减追溯
 // ═══════════════════════════════════════════════════════════
 
-/** 单次 getMatchHistory 请求的游戏数量（一次拉 500 场，减少翻页） */
-const PAGE_SIZE = 500
-/** 目标拉取的对局总数上限（对齐 LeagueAkari） */
-const MAX_FETCH_COUNT = 1000
+/** 单次 getMatchHistory 请求的游戏数量（endIndex=1999，一次请求触发 LCU 拉取更多） */
+const PAGE_SIZE = 2000
+/** 目标拉取的对局总数上限 */
+const MAX_FETCH_COUNT = 2000
 /** 每次并行调用 getGameDetail 的数量 */
 const DETAIL_CONCUR = 20
 
