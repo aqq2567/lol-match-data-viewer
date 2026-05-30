@@ -67,7 +67,7 @@ npm run preview      # 预览生产构建
 
 1. 主进程通过 PowerShell `Get-CimInstance Win32_Process` 查找 `LeagueClientUx.exe`，从命令行参数解析 `--app-port` 和 `--remoting-auth-token`
 2. 渲染进程通过 `window.lcuApi`（contextBridge）调用 IPC → 主进程执行 LCU API 请求
-3. 比赛列表获取采用两阶段：先获取摘要（begIndex/endIndex 分页 + gameId Set 去重），再并行批量加载详情（并发 20）；LCU API 单玩家上限 ~200 场
+3. 比赛列表获取采用两阶段：(1) `fetchAllSummaries()` 分页拉取（按 `gameCount` 智能终止，避免浪费请求）；(2) `loadDetailMap()` 先查会话级 `gameDetailCache`，未命中分批并行拉取（并发 30）；LCU API 单玩家上限 ~200 场
 4. 静态游戏数据（英雄、物品、技能、符文、队列、海克斯强化）通过 `fetchGameData()` 并行加载
 5. 图片通过自定义 `lcu-asset://` 协议代理（并发限制 8），避免 CORS 问题
 6. 比赛中选 ID 通过 `sessionStorage` 跨页面传递
@@ -100,10 +100,11 @@ LCU match-history API 单玩家上限 **~200 场**。经实验验证：
 | 1999 | 200 场 | 服务端 gameCount=200，硬上限 |
 
 代码位于 `electron-app/src/main/lcu/extractor.ts`：
-- `PAGE_SIZE=200`：单次 `begIndex`/`endIndex` 范围
+- `PAGE_SIZE=500`：单次 `begIndex`/`endIndex` 范围（endIndex 必须 ≥499 触发热加载）
 - `fetchMatchPage()`：先用 `begIndex`（国服），失败降级 `beginIndex`
-- 分页用 `Set<number>` 按 gameId 去重，LCU 返回重复/空时自动停止
-- 详情补载并发 20 场，`MAX_FETCH_COUNT=2000` 为安全阀
+- `fetchAllSummaries()`：所有分页 `Promise.all` 并行发出，`Set<number>` 去重
+- `loadDetailMap()`：先查 `gameDetailCache`（会话级 `Map<gameId, detail>`），未命中一次性全量并行拉取
+- `MAX_FETCH_COUNT=2000` 为安全阀
 
 ### SGP API（未来扩展参考）
 

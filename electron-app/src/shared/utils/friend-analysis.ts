@@ -4,6 +4,11 @@
  */
 import type { GameSummary, ParticipantBrief } from '@shared/types/app'
 
+/** 收集者 item ID */
+const COLLECTOR_ID = 6676
+/** 心之钢 item ID */
+const HEARTSTEEL_ID = 3084
+
 export interface FriendStats {
   puuid: string
   name: string
@@ -14,6 +19,10 @@ export interface FriendStats {
   soloWinRate: number
   lastPlayedTime: number
   gameIds: number[]
+  /** 装备中包含收集者的场次 */
+  collectorGames: number
+  /** 装备中包含心之钢的场次 */
+  heartsteelGames: number
 }
 
 /** 从 GameSummary 列表中分析所有队友频次与胜率 */
@@ -35,10 +44,15 @@ export function analyzeFriends(games: GameSummary[], targetPuuid: string): Frien
     for (const p of teammates) {
       if (p.puuid === targetPuuid) continue
 
+      const hasCollector = p.items.includes(COLLECTOR_ID)
+      const hasHeartsteel = p.items.includes(HEARTSTEEL_ID)
+
       const existing = map.get(p.puuid)
       if (existing) {
         existing.gamesTogether++
         if (g.win) existing.winsTogether++
+        if (hasCollector) existing.collectorGames++
+        if (hasHeartsteel) existing.heartsteelGames++
         if (g.gameCreation > existing.lastPlayedTime) {
           existing.lastPlayedTime = g.gameCreation
         }
@@ -54,6 +68,8 @@ export function analyzeFriends(games: GameSummary[], targetPuuid: string): Frien
           soloWinRate: 0,
           lastPlayedTime: g.gameCreation,
           gameIds: [g.gameId],
+          collectorGames: hasCollector ? 1 : 0,
+          heartsteelGames: hasHeartsteel ? 1 : 0,
         })
       }
     }
@@ -85,17 +101,29 @@ export interface FriendSummary {
   mostPlayed: { name: string; count: number } | null
   bestWinRate: { name: string; rate: number } | null
   totalGames: number
+  bestCollector: { name: string; ratio: number; games: number } | null
+  bestHeartsteel: { name: string; ratio: number; games: number } | null
 }
 
 export function computeFriendSummary(friends: FriendStats[], totalGames: number): FriendSummary {
   if (friends.length === 0) {
-    return { totalFriends: 0, mostPlayed: null, bestWinRate: null, totalGames }
+    return { totalFriends: 0, mostPlayed: null, bestWinRate: null, totalGames, bestCollector: null, bestHeartsteel: null }
   }
 
   const mostPlayed = friends[0]
   const bestWR = friends.reduce((best, f) =>
     f.winRate > best.winRate && f.gamesTogether >= 5 ? f : best
   , friends[0])
+
+  const bestCollector = friends
+    .filter(f => f.collectorGames > 0 && f.gamesTogether >= 3)
+    .reduce((best, f) => f.collectorGames / f.gamesTogether > best.collectorGames / best.gamesTogether ? f : best
+    , friends.filter(f => f.collectorGames > 0 && f.gamesTogether >= 3)[0] || null)
+
+  const bestHeartsteel = friends
+    .filter(f => f.heartsteelGames > 0 && f.gamesTogether >= 3)
+    .reduce((best, f) => f.heartsteelGames / f.gamesTogether > best.heartsteelGames / best.gamesTogether ? f : best
+    , friends.filter(f => f.heartsteelGames > 0 && f.gamesTogether >= 3)[0] || null)
 
   return {
     totalFriends: friends.length,
@@ -104,5 +132,11 @@ export function computeFriendSummary(friends: FriendStats[], totalGames: number)
       ? { name: bestWR.name, rate: bestWR.winRate }
       : null,
     totalGames,
+    bestCollector: bestCollector
+      ? { name: bestCollector.name, ratio: bestCollector.collectorGames / bestCollector.gamesTogether, games: bestCollector.collectorGames }
+      : null,
+    bestHeartsteel: bestHeartsteel
+      ? { name: bestHeartsteel.name, ratio: bestHeartsteel.heartsteelGames / bestHeartsteel.gamesTogether, games: bestHeartsteel.heartsteelGames }
+      : null,
   }
 }

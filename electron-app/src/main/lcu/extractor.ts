@@ -257,10 +257,10 @@ export function extractChampionMasteryForGame(
  * 服务端实际返回上限 ≈200 场，超出部分由分页去重逻辑自动跳过。
  */
 const PAGE_SIZE = 500
-/** 目标拉取的对局总数上限（安全阀，分页在 LCU 返回重复/空时自动停止） */
-const MAX_FETCH_COUNT = 2000
-/** 每次并行调用 getGameDetail 的数量 */
-const DETAIL_CONCUR = 20
+/** 目标拉取的对局总数上限（安全阀，分页在 LCU 返回空时自动停止） */
+const MAX_FETCH_COUNT = 1000
+/** 详情并发数：LCU localhost 实测 200 并发会触发 ECONNREFUSED，30 为安全值 */
+const DETAIL_CONCUR = 30
 
 /**
  * 拉取一页对局摘要
@@ -273,8 +273,16 @@ async function fetchMatchPage(
   beg: number,
   end: number,
 ): Promise<{ meta: any; games: any[] }> {
-  let page = await client.getMatchHistory(puuid, beg, end)
-  let games: any[] = page?.games?.games || []
+  let page: any
+  let games: any[] = []
+
+  try {
+    page = await client.getMatchHistory(puuid, beg, end)
+    games = page?.games?.games || []
+  } catch (err: any) {
+    console.warn(`[LCU:MAIN] begIndex 请求失败 (${err.message || err}), 尝试 beginIndex 降级`)
+  }
+
   if (games.length === 0) {
     page = await client.getMatchHistoryAlt(puuid, beg, end)
     games = page?.games?.games || []
@@ -285,35 +293,19 @@ async function fetchMatchPage(
   return { meta: page?.games || {}, games }
 }
 
-export async function fetchMatchList(
+/**
+ * 分页拉取指定玩家全部对局摘要（含去重）。
+ * 先从第一页获取 gameCount，按需串行追加后续分页。
+ * LCU 单玩家上限 ~200，PAGE_SIZE=500 一页即可覆盖，后续分页为安全阀。
+ */
+async function fetchAllSummaries(
   client: LcuHttpClient,
-  _page: number = 1,
-  _pageSize: number = 20
-): Promise<MatchListData> {
-  const conn = findLolClient()
-  if (!conn) throw new Error('未找到运行中的 LOL 客户端')
-
-  const summoner = await client.getCurrentSummoner()
-  const puuid = summoner.puuid
-
-  // ═══ 第一步：拉取初始页 + 段位 ═══
-  const ranked = await client.getRankedStats(puuid)
-
+  puuid: string,
+): Promise<{ summaries: any[]; totalGames: number }> {
   const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
   const totalGames: number = firstMeta.gameCount || 0
-  // gameCount 反映 LCU 服务端该玩家的对局总数（endIndex 足够大时 ≈200），
-  // 不依赖它作为硬上限，以 MAX_FETCH_COUNT 为安全阀持续分页直到重复/空
-  const targetCount = MAX_FETCH_COUNT
-
-  console.log(
-    `[LCU:MAIN] 初始分页: beg=0 end=${PAGE_SIZE - 1} → ` +
-    `返回${firstGames.length}场 gameCount=${totalGames} target=${targetCount}`
-  )
-
-  // ═══ 第二步：分页拉取剩余的摘要数据 ═══
   const seenIds = new Set<number>()
   const allSummaries: any[] = []
-  const detailMap = new Map<number, any>()
 
   for (const g of firstGames) {
     if (!seenIds.has(g.gameId)) {
@@ -322,17 +314,13 @@ export async function fetchMatchList(
     }
   }
 
-  let cursor = PAGE_SIZE // 下一页的 begIndex
-  while (allSummaries.length < targetCount) {
+  // 仅当第一页未覆盖全部 gameCount 时才追页（安全阀，实际极少触发）
+  let cursor = PAGE_SIZE
+  while (allSummaries.length < totalGames && allSummaries.length < MAX_FETCH_COUNT) {
     const beg = cursor
     const end = beg + PAGE_SIZE - 1
-    console.log(`[LCU:MAIN] 继续分页: beg=${beg} end=${end}`)
-
     const { games: pageGames } = await fetchMatchPage(client, puuid, beg, end)
-    if (pageGames.length === 0) {
-      console.log(`[LCU:MAIN] 分页中断: beg=${beg} 返回空（LCU 无更多数据）`)
-      break
-    }
+    if (pageGames.length === 0) break
 
     let newCount = 0
     for (const g of pageGames) {
@@ -343,34 +331,76 @@ export async function fetchMatchList(
       }
     }
 
-    if (newCount === 0) {
-      console.log(`[LCU:MAIN] 分页中断: beg=${beg} 返回全部重复（LCU 缓存已耗尽）`)
-      break
-    }
-
+    if (newCount === 0) break
     cursor += PAGE_SIZE
   }
 
-  console.log(`[LCU:MAIN] 分页完成: 共 ${allSummaries.length} 场摘要`)
+  return { summaries: allSummaries, totalGames }
+}
 
-  // ═══ 第三步：并行补载所有对局的详情 ═══
-  for (let i = 0; i < allSummaries.length; i += DETAIL_CONCUR) {
-    const batch = allSummaries.slice(i, i + DETAIL_CONCUR)
-    const results = await Promise.all(
-      batch.map(g =>
-        client.getGameDetail(g.gameId).catch((err: any) => {
-          console.warn(`[LCU:MAIN] 详情 #${g.gameId} 加载失败: ${err.message || err}`)
+/** 会话级详情缓存：gameId → detail，跨玩家共享，避免重复拉取 */
+const gameDetailCache = new Map<number, any>()
+
+/**
+ * 批量加载对局详情，返回 gameId → detail 映射。
+ * 先查全局缓存，未命中的分批并行拉取（避免并发过高触发 ECONNREFUSED）。
+ */
+async function loadDetailMap(
+  client: LcuHttpClient,
+  gameIds: number[],
+  label: string,
+): Promise<Map<number, any>> {
+  const result = new Map<number, any>()
+  const uncached: number[] = []
+
+  for (const gid of gameIds) {
+    if (gameDetailCache.has(gid)) {
+      result.set(gid, gameDetailCache.get(gid)!)
+    } else {
+      uncached.push(gid)
+    }
+  }
+
+  const cacheHits = gameIds.length - uncached.length
+  let fetchedCount = 0
+
+  for (let i = 0; i < uncached.length; i += DETAIL_CONCUR) {
+    const batch = uncached.slice(i, i + DETAIL_CONCUR)
+    const fetched = await Promise.all(
+      batch.map(gid =>
+        client.getGameDetail(gid).catch((err: any) => {
+          console.warn(`[LCU:MAIN] 详情 #${gid} 加载失败: ${err.message || err}`)
           return null
         })
       )
     )
-    for (const d of results) {
-      if (d) detailMap.set(d.gameId, d)
+    for (const d of fetched) {
+      if (d) {
+        gameDetailCache.set(d.gameId, d)
+        result.set(d.gameId, d)
+        fetchedCount++
+      }
     }
   }
-  console.log(`[LCU:MAIN] 详情补载: ${detailMap.size}/${allSummaries.length} 场`)
 
-  // 用详情增强摘要，缺失详情的保留原始摘要
+  console.log(
+    `[LCU:MAIN] ${label}: ${result.size}/${gameIds.length} 场 ` +
+    `(缓存命中 ${cacheHits}, 新拉取 ${fetchedCount}/${uncached.length}, 缓存池 ${gameDetailCache.size})`
+  )
+  return result
+}
+
+/**
+ * 将摘要列表 + 详情映射 + 召唤师信息组装为 MatchListData
+ */
+function buildMatchListData(
+  allSummaries: any[],
+  detailMap: Map<number, any>,
+  puuid: string,
+  summonerInfo: SummonerInfo,
+  ranked: RankedData,
+  totalGames: number,
+): MatchListData {
   const rawGames = allSummaries.map(g => {
     const detail = detailMap.get(g.gameId)
     if (detail) {
@@ -384,17 +414,44 @@ export async function fetchMatchList(
     return g
   })
 
-  // 按 gameCreation 降序排列（最新的在前）
   rawGames.sort((a, b) => {
     const ta = a.gameCreationDate ? new Date(a.gameCreationDate).getTime() : (a.gameCreation || 0)
     const tb = b.gameCreationDate ? new Date(b.gameCreationDate).getTime() : (b.gameCreation || 0)
     return tb - ta
   })
 
-  // ═══ 第四步：构建 GameSummary 列表 ═══
   const games: GameSummary[] = rawGames.map((g: any) => buildGameSummary(g, puuid))
 
-  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${games.length} 场 (API gameCount=${totalGames})`)
+  return {
+    summoner: summonerInfo,
+    ranked,
+    totalGames: games.length,
+    pageSize: 0,
+    games,
+  }
+}
+
+export async function fetchMatchList(
+  client: LcuHttpClient,
+  _page: number = 1,
+  _pageSize: number = 20
+): Promise<MatchListData> {
+  const conn = findLolClient()
+  if (!conn) throw new Error('未找到运行中的 LOL 客户端')
+
+  const summoner = await client.getCurrentSummoner()
+  const puuid = summoner.puuid
+
+  const [ranked, { summaries, totalGames }] = await Promise.all([
+    client.getRankedStats(puuid),
+    fetchAllSummaries(client, puuid),
+  ])
+
+  console.log(
+    `[LCU:MAIN] fetch-match-list: 分页完成 共 ${summaries.length} 场摘要 (API gameCount=${totalGames})`
+  )
+
+  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), '详情补载')
 
   const summonerInfo: SummonerInfo = {
     puuid,
@@ -405,13 +462,9 @@ export async function fetchMatchList(
     profileIconId: (summoner as any).profileIconId || 0,
   }
 
-  return {
-    summoner: summonerInfo,
-    ranked: extractRankedData(ranked),
-    totalGames: games.length,
-    pageSize: 0,
-    games,
-  }
+  const result = buildMatchListData(summaries, detailMap, puuid, summonerInfo, extractRankedData(ranked), totalGames)
+  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${result.games.length} 场 (API gameCount=${totalGames})`)
+  return result
 }
 
 /** 从单局数据（摘要或详情）构建 GameSummary */
@@ -487,6 +540,7 @@ function buildGameSummary(g: any, selfPuuid: string): GameSummary {
           summonerName: player.summonerName || player.gameName || '',
           championId: p.championId || 0,
           teamId: p.teamId,
+          items: [0, 1, 2, 3, 4, 5, 6].map((i) => (p.stats || {})[`item${i}`] || 0),
         }
       })
   }
@@ -542,91 +596,20 @@ export async function fetchMatchListForPlayer(
   const conn = findLolClient()
   if (!conn) throw new Error('未找到运行中的 LOL 客户端')
 
-  const puuid = targetPuuid
-
-  const ranked = await client.getRankedStats(puuid)
-
-  const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
-  const totalGames: number = firstMeta.gameCount || 0
-  const targetCount = MAX_FETCH_COUNT
+  const [ranked, { summaries, totalGames }] = await Promise.all([
+    client.getRankedStats(targetPuuid),
+    fetchAllSummaries(client, targetPuuid),
+  ])
 
   console.log(
-    `[LCU:MAIN] fetchMatchListForPlayer PUUID=${puuid.slice(0,8)}…: ` +
-    `初始分页 beg=0 end=${PAGE_SIZE - 1} → ` +
-    `返回${firstGames.length}场 gameCount=${totalGames} target=${targetCount}`
+    `[LCU:MAIN] fetchMatchListForPlayer ${summonerName}: ` +
+    `分页完成 共 ${summaries.length} 场摘要 gameCount=${totalGames}`
   )
 
-  const seenIds = new Set<number>()
-  const allSummaries: any[] = []
-
-  for (const g of firstGames) {
-    if (!seenIds.has(g.gameId)) {
-      seenIds.add(g.gameId)
-      allSummaries.push(g)
-    }
-  }
-
-  let cursor = PAGE_SIZE
-  while (allSummaries.length < targetCount) {
-    const beg = cursor
-    const end = beg + PAGE_SIZE - 1
-    const { games: pageGames } = await fetchMatchPage(client, puuid, beg, end)
-    if (pageGames.length === 0) break
-
-    let newCount = 0
-    for (const g of pageGames) {
-      if (!seenIds.has(g.gameId)) {
-        seenIds.add(g.gameId)
-        allSummaries.push(g)
-        newCount++
-      }
-    }
-
-    if (newCount === 0) {
-      console.log(`[LCU:MAIN] fetchMatchListForPlayer 分页中断: beg=${beg} 返回全部重复（LCU 缓存已耗尽）`)
-      break
-    }
-
-    cursor += PAGE_SIZE
-  }
-
-  console.log(`[LCU:MAIN] fetchMatchListForPlayer 分页完成: 共 ${allSummaries.length} 场摘要`)
-
-  const detailMap = new Map<number, any>()
-  for (let i = 0; i < allSummaries.length; i += DETAIL_CONCUR) {
-    const batch = allSummaries.slice(i, i + DETAIL_CONCUR)
-    const results = await Promise.all(
-      batch.map(g =>
-        client.getGameDetail(g.gameId).catch((err: any) => {
-          console.warn(`[LCU:MAIN] 详情 #${g.gameId} 加载失败: ${err.message || err}`)
-          return null
-        })
-      )
-    )
-    for (const d of results) {
-      if (d) detailMap.set(d.gameId, d)
-    }
-  }
-  console.log(`[LCU:MAIN] fetchMatchListForPlayer 详情补载: ${detailMap.size}/${allSummaries.length} 场`)
-
-  const rawGames = allSummaries.map(g => {
-    const detail = detailMap.get(g.gameId)
-    if (detail) {
-      return { ...g, participants: detail.participants, participantIdentities: detail.participantIdentities, teams: detail.teams }
-    }
-    return g
-  })
-
-  rawGames.sort((a, b) => {
-    const ta = a.gameCreationDate ? new Date(a.gameCreationDate).getTime() : (a.gameCreation || 0)
-    const tb = b.gameCreationDate ? new Date(b.gameCreationDate).getTime() : (b.gameCreation || 0)
-    return tb - ta
-  })
-
-  const games: GameSummary[] = rawGames.map((g: any) => buildGameSummary(g, puuid))
+  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), `详情补载 (${summonerName})`)
 
   const summonerInfo: SummonerInfo = {
-    puuid,
+    puuid: targetPuuid,
     name: summonerName,
     level: summonerLevel,
     region: conn.region,
@@ -634,13 +617,7 @@ export async function fetchMatchListForPlayer(
     profileIconId,
   }
 
-  return {
-    summoner: summonerInfo,
-    ranked: extractRankedData(ranked),
-    totalGames: games.length,
-    pageSize: 0,
-    games,
-  }
+  return buildMatchListData(summaries, detailMap, targetPuuid, summonerInfo, extractRankedData(ranked), totalGames)
 }
 
 // ═══════════════════════════════════════════════════════════

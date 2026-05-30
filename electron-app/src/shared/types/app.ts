@@ -230,6 +230,7 @@ export interface ParticipantBrief {
   summonerName: string
   championId: number
   teamId: number // 100 = 蓝方, 200 = 红方
+  items: number[]
 }
 
 export interface GameSummary {

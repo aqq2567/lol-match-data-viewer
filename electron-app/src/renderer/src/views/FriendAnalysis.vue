@@ -124,9 +124,16 @@
                       </div>
                     </template>
                     <div class="popover-stats">
-                      <div class="pop-item">一起场次 <b>{{ friendPodium[1].gamesTogether }}</b></div>
-                      <div class="pop-item">一起胜率 <b>{{ rateDisplay(friendPodium[1].winRate) }}</b></div>
-                      <div class="pop-item">个人胜率 <b>{{ rateDisplay(friendPodium[1].soloWinRate) }}</b></div>
+                      <template v-if="isItemMetric">
+                        <div class="pop-item">出的场次 <b>{{ selectedMetric === 'collectorRatio' ? friendPodium[1].collectorGames : friendPodium[1].heartsteelGames }}</b></div>
+                        <div class="pop-item">总场次 <b>{{ friendPodium[1].gamesTogether }}</b></div>
+                        <div class="pop-item">胜率 <b>{{ rateDisplay(friendPodium[1].winRate) }}</b></div>
+                      </template>
+                      <template v-else>
+                        <div class="pop-item">一起场次 <b>{{ friendPodium[1].gamesTogether }}</b></div>
+                        <div class="pop-item">一起胜率 <b>{{ rateDisplay(friendPodium[1].winRate) }}</b></div>
+                        <div class="pop-item">个人胜率 <b>{{ rateDisplay(friendPodium[1].soloWinRate) }}</b></div>
+                      </template>
                     </div>
                   </n-popover>
                   <!-- 第 1 名 -->
@@ -147,9 +154,16 @@
                       </div>
                     </template>
                     <div class="popover-stats">
-                      <div class="pop-item">一起场次 <b>{{ friendPodium[0].gamesTogether }}</b></div>
-                      <div class="pop-item">一起胜率 <b>{{ rateDisplay(friendPodium[0].winRate) }}</b></div>
-                      <div class="pop-item">个人胜率 <b>{{ rateDisplay(friendPodium[0].soloWinRate) }}</b></div>
+                      <template v-if="isItemMetric">
+                        <div class="pop-item">出的场次 <b>{{ selectedMetric === 'collectorRatio' ? friendPodium[0].collectorGames : friendPodium[0].heartsteelGames }}</b></div>
+                        <div class="pop-item">总场次 <b>{{ friendPodium[0].gamesTogether }}</b></div>
+                        <div class="pop-item">胜率 <b>{{ rateDisplay(friendPodium[0].winRate) }}</b></div>
+                      </template>
+                      <template v-else>
+                        <div class="pop-item">一起场次 <b>{{ friendPodium[0].gamesTogether }}</b></div>
+                        <div class="pop-item">一起胜率 <b>{{ rateDisplay(friendPodium[0].winRate) }}</b></div>
+                        <div class="pop-item">个人胜率 <b>{{ rateDisplay(friendPodium[0].soloWinRate) }}</b></div>
+                      </template>
                     </div>
                   </n-popover>
                   <!-- 第 3 名 -->
@@ -163,9 +177,16 @@
                       </div>
                     </template>
                     <div class="popover-stats">
-                      <div class="pop-item">一起场次 <b>{{ friendPodium[2].gamesTogether }}</b></div>
-                      <div class="pop-item">一起胜率 <b>{{ rateDisplay(friendPodium[2].winRate) }}</b></div>
-                      <div class="pop-item">个人胜率 <b>{{ rateDisplay(friendPodium[2].soloWinRate) }}</b></div>
+                      <template v-if="isItemMetric">
+                        <div class="pop-item">出的场次 <b>{{ selectedMetric === 'collectorRatio' ? friendPodium[2].collectorGames : friendPodium[2].heartsteelGames }}</b></div>
+                        <div class="pop-item">总场次 <b>{{ friendPodium[2].gamesTogether }}</b></div>
+                        <div class="pop-item">胜率 <b>{{ rateDisplay(friendPodium[2].winRate) }}</b></div>
+                      </template>
+                      <template v-else>
+                        <div class="pop-item">一起场次 <b>{{ friendPodium[2].gamesTogether }}</b></div>
+                        <div class="pop-item">一起胜率 <b>{{ rateDisplay(friendPodium[2].winRate) }}</b></div>
+                        <div class="pop-item">个人胜率 <b>{{ rateDisplay(friendPodium[2].soloWinRate) }}</b></div>
+                      </template>
                     </div>
                   </n-popover>
                 </div>
@@ -188,6 +209,7 @@
           </template>
         </div>
       </div>
+      <div class="dev-watermark">本功能正在开发中...可能存在问题OvO</div>
     </template>
   </div>
 </template>
@@ -276,6 +298,22 @@ const friendMetrics: FriendMetricDef[] = [
     fmt: (v) => (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%',
     minGames: 5,
   },
+  {
+    key: 'collectorRatio',
+    label: '收集者率',
+    colorClass: 'cat-red',
+    getter: (f) => f.gamesTogether > 0 ? f.collectorGames / f.gamesTogether : 0,
+    fmt: (v) => (v * 100).toFixed(0) + '%',
+    minGames: 3,
+  },
+  {
+    key: 'heartsteelRatio',
+    label: '心之钢率',
+    colorClass: 'cat-orange',
+    getter: (f) => f.gamesTogether > 0 ? f.heartsteelGames / f.gamesTogether : 0,
+    fmt: (v) => (v * 100).toFixed(0) + '%',
+    minGames: 3,
+  },
 ]
 
 const selectedCategory = computed(() =>
@@ -300,6 +338,8 @@ interface FriendPodiumEntry {
   gamesTogether: number
   winRate: number
   soloWinRate: number
+  collectorGames: number
+  heartsteelGames: number
 }
 
 const friendPodium = computed<FriendPodiumEntry[]>(() => {
@@ -313,6 +353,8 @@ const friendPodium = computed<FriendPodiumEntry[]>(() => {
     gamesTogether: f.gamesTogether,
     winRate: f.winRate,
     soloWinRate: f.soloWinRate,
+    collectorGames: f.collectorGames,
+    heartsteelGames: f.heartsteelGames,
   }))
 })
 
@@ -321,6 +363,8 @@ const firstPlaceTitle = computed(() => {
     gamesTogether: '最佳拍档',
     winRate: '天选搭档',
     winDelta: '团队催化剂',
+    collectorRatio: '最爱收集者之人',
+    heartsteelRatio: '最爱心之钢之人',
   }
   return selectedMetric.value ? (map[selectedMetric.value] || '') : ''
 })
@@ -330,77 +374,132 @@ const tableMaxHeight = computed(() => {
   return Math.min(Math.max(count, 1), 10) * 40 + 36
 })
 
+const isItemMetric = computed(() =>
+  selectedMetric.value === 'collectorRatio' || selectedMetric.value === 'heartsteelRatio'
+)
+
 /** 排名表列定义 */
-const friendColumns = computed(() => [
-  {
-    title: '#',
-    key: 'rank',
-    width: 48,
-    render: (_row: FriendStats, idx: number) =>
-      h('span', {
-        style: idx < 3
-          ? 'font-weight:700;color:#e8a840;font-size:14px'
-          : 'color:rgba(255,255,255,0.35);font-size:14px'
-      }, String(idx + 1)),
-  },
-  {
-    title: '召唤师',
-    key: 'name',
-    width: 150,
-    render: (row: FriendStats) =>
-      h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.name)),
-  },
-  {
-    title: '指标值',
-    key: 'metricValue',
-    width: 100,
-    render: (row: FriendStats) => {
-      const cat = selectedCategory.value
-      if (!cat) return ''
-      const val = cat.getter(row)
-      let color = 'var(--text-primary)'
-      if (cat.key === 'winRate') {
-        color = val >= 0.55 ? '#2ea86c' : val >= 0.45 ? 'var(--text-primary)' : '#e84057'
-      } else if (cat.key === 'winDelta') {
-        color = val > 0.02 ? '#2ea86c' : val < -0.02 ? '#e84057' : 'var(--text-tertiary)'
-      }
-      return h('span', {
-        style: `font-weight:700;font-family:monospace;font-size:14px;color:${color}`
-      }, cat.fmt(val))
+const friendColumns = computed(() => {
+  const cat = selectedCategory.value
+  const cols: any[] = [
+    {
+      title: '#',
+      key: 'rank',
+      width: 48,
+      render: (_row: FriendStats, idx: number) =>
+        h('span', {
+          style: idx < 3
+            ? 'font-weight:700;color:#e8a840;font-size:14px'
+            : 'color:rgba(255,255,255,0.35);font-size:14px'
+        }, String(idx + 1)),
     },
-  },
-  {
-    title: '一起场次',
-    key: 'gamesTogether',
-    width: 85,
-    render: (row: FriendStats) =>
-      h('span', { style: 'font-family:monospace;font-size:14px;font-weight:600' }, String(row.gamesTogether)),
-  },
-  {
-    title: '一起时胜率',
-    key: 'winRate',
-    width: 100,
-    render: (row: FriendStats) => {
-      const r = row.winRate
-      const color = r >= 0.55 ? '#2ea86c' : r >= 0.45 ? 'var(--text-primary)' : '#e84057'
-      return h('span', { style: `font-weight:600;font-family:monospace;font-size:14px;color:${color}` }, rateDisplay(r))
+    {
+      title: '召唤师',
+      key: 'name',
+      width: 140,
+      render: (row: FriendStats) =>
+        h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.name)),
     },
-  },
-  {
-    title: '个人胜率',
-    key: 'soloWinRate',
-    width: 85,
-    render: (row: FriendStats) =>
-      h('span', { style: 'font-family:monospace;font-size:13px;color:var(--text-tertiary)' }, rateDisplay(row.soloWinRate)),
-  },
-  {
-    title: '最近一起',
-    key: 'lastPlayed',
-    width: 85,
-    render: (row: FriendStats) =>
-      h('span', { style: 'font-size:12px;color:var(--text-tertiary)' }, daysAgo(row.lastPlayedTime)),
-  },
-])
+  ]
+
+  if (isItemMetric.value && cat) {
+    // 装备指标：收集者率/心之钢率 | 出的场次 | 总场次 | 胜率
+    cols.push(
+      {
+        title: cat.label,
+        key: 'metricValue',
+        width: 95,
+        render: (row: FriendStats) => {
+          const val = cat.getter(row)
+          return h('span', {
+            style: 'font-weight:700;font-family:monospace;font-size:14px;color:var(--text-primary)'
+          }, cat.fmt(val))
+        },
+      },
+      {
+        title: '出的场次',
+        key: 'itemGames',
+        width: 85,
+        render: (row: FriendStats) => {
+          const v = selectedMetric.value === 'collectorRatio' ? row.collectorGames : row.heartsteelGames
+          return h('span', { style: 'font-family:monospace;font-size:14px;font-weight:600' }, String(v))
+        },
+      },
+      {
+        title: '总场次',
+        key: 'gamesTogether',
+        width: 75,
+        render: (row: FriendStats) =>
+          h('span', { style: 'font-family:monospace;font-size:14px;font-weight:600' }, String(row.gamesTogether)),
+      },
+      {
+        title: '胜率',
+        key: 'winRate',
+        width: 80,
+        render: (row: FriendStats) => {
+          const r = row.winRate
+          const color = r >= 0.55 ? '#2ea86c' : r >= 0.45 ? 'var(--text-primary)' : '#e84057'
+          return h('span', { style: `font-weight:600;font-family:monospace;font-size:14px;color:${color}` }, rateDisplay(r))
+        },
+      },
+    )
+  } else {
+    // 默认列：指标值 | 一起场次 | 一起时胜率 | 个人胜率 | 最近一起
+    cols.push(
+      {
+        title: '指标值',
+        key: 'metricValue',
+        width: 100,
+        render: (row: FriendStats) => {
+          if (!cat) return ''
+          const val = cat.getter(row)
+          let color = 'var(--text-primary)'
+          if (cat.key === 'winRate') {
+            color = val >= 0.55 ? '#2ea86c' : val >= 0.45 ? 'var(--text-primary)' : '#e84057'
+          } else if (cat.key === 'winDelta') {
+            color = val > 0.02 ? '#2ea86c' : val < -0.02 ? '#e84057' : 'var(--text-tertiary)'
+          }
+          return h('span', {
+            style: `font-weight:700;font-family:monospace;font-size:14px;color:${color}`
+          }, cat.fmt(val))
+        },
+      },
+      {
+        title: '一起场次',
+        key: 'gamesTogether',
+        width: 85,
+        render: (row: FriendStats) =>
+          h('span', { style: 'font-family:monospace;font-size:14px;font-weight:600' }, String(row.gamesTogether)),
+      },
+      {
+        title: '一起时胜率',
+        key: 'winRate',
+        width: 100,
+        render: (row: FriendStats) => {
+          const r = row.winRate
+          const color = r >= 0.55 ? '#2ea86c' : r >= 0.45 ? 'var(--text-primary)' : '#e84057'
+          return h('span', { style: `font-weight:600;font-family:monospace;font-size:14px;color:${color}` }, rateDisplay(r))
+        },
+      },
+      {
+        title: '个人胜率',
+        key: 'soloWinRate',
+        width: 85,
+        render: (row: FriendStats) =>
+          h('span', { style: 'font-family:monospace;font-size:13px;color:var(--text-tertiary)' }, rateDisplay(row.soloWinRate)),
+      },
+      {
+        title: '最近一起',
+        key: 'lastPlayed',
+        width: 85,
+        render: (row: FriendStats) =>
+          h('span', { style: 'font-size:12px;color:var(--text-tertiary)' }, daysAgo(row.lastPlayedTime)),
+      },
+    )
+  }
+
+  return cols
+})
 
 function profileIconUrl(iconId: number): string {
   return `/lol-game-data/assets/v1/profile-icons/${iconId || 0}.jpg`
@@ -617,6 +716,8 @@ onMounted(() => {
 .metric-dot.cat-blue   { background: #3c8cd0; }
 .metric-dot.cat-green  { background: #2ea86c; }
 .metric-dot.cat-purple { background: #8b5cf6; }
+.metric-dot.cat-red    { background: #e84057; }
+.metric-dot.cat-orange { background: #e8913a; }
 
 .metric-label {
   font-size: 14px;
@@ -801,5 +902,18 @@ onMounted(() => {
 .popover-stats b {
   color: var(--text-primary);
   margin-left: 4px;
+}
+
+/* ── 开发中水印 ── */
+.dev-watermark {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
 }
 </style>
