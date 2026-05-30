@@ -199,8 +199,8 @@ ipcMain.handle('log:write', async (_event, level: string, ...args: any[]) => {
 
 // 更新相关 handler
 ipcMain.handle('update:quit-and-install', () => {
-  console.log('[UPDATER] 用户请求安装更新并重启')
-  autoUpdater.quitAndInstall()
+  console.log('[UPDATER] 用户请求安装更新并重启（静默模式）')
+  autoUpdater.quitAndInstall(true, true)
 })
 
 ipcMain.handle('update:check', async () => {
