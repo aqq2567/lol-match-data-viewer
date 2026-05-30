@@ -99,6 +99,7 @@ export function analyzeFriends(games: GameSummary[], targetPuuid: string): Frien
   )
 
   return result
+}
 
 function friendDisplayName(p: ParticipantBrief): string {
   if (p.gameName) {

@@ -47,6 +47,42 @@ function runPsScript(script: string, timeout: number): string {
   }
 }
 
+/**
+ * 直接调用 WMIC 读取进程命令行。
+ * 不依赖 PowerShell，在 PowerShell 被组策略禁用时仍可工作。
+ * 注意：WMIC 读取命令行通常仍需管理员权限。
+ */
+function runWmic(processName: string, timeout: number): string {
+  try {
+    return execSync(
+      `wmic process where "name='${processName}'" get CommandLine,ProcessId /format:csv`,
+      { encoding: 'utf-8', timeout }
+    ).trim()
+  } catch (err: any) {
+    console.error(`[LCU:MAIN] WMIC 执行失败 (timeout=${timeout}ms): ${err.message || err}`)
+    return ''
+  }
+}
+
+/** 解析 WMIC /format:csv 输出，提取 port、authToken、pid */
+function parseWmicOutput(raw: string): { port: number; authToken: string; pid: number } | null {
+  const lines = raw.split('\n')
+  for (const line of lines) {
+    if (!line.includes('LeagueClientUx')) continue
+    // CSV 格式: Node,CommandLine,ProcessId
+    const match = line.match(/^[^,]*,(.+),(\d+)$/)
+    if (!match) continue
+    const cmdline = match[1].replace(/^"|"$/g, '') // 去掉 CSV 引号包裹
+    const pid = parseInt(match[2]) || 0
+    const port = extractFromCmdline(cmdline, /--app-port=(\d+)/)
+    const authToken = extractFromCmdline(cmdline, /--remoting-auth-token=([\w\-_]+)/)
+    if (port && authToken) {
+      return { port: parseInt(port), authToken, pid }
+    }
+  }
+  return null
+}
+
 /** 通过 PowerShell 查找 LeagueClientUx.exe 进程并解析连接参数 */
 export function findLolClient(): LcuConnectionInfo | null {
   try {
@@ -87,14 +123,18 @@ export function findLolClient(): LcuConnectionInfo | null {
       $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
       if (-not $p) { exit }
 
-      # 检查固定路径（最快）
+      # 检查固定路径（覆盖常见安装位置）
       $fixedPaths = @(
         "$env:ProgramFiles\\Riot Games\\League of Legends\\lockfile",
         "\${env:ProgramFiles(x86)}\\Riot Games\\League of Legends\\lockfile",
+        "$env:LOCALAPPDATA\\Riot Games\\League of Legends\\lockfile",
         "C:\\Riot Games\\League of Legends\\lockfile",
         "D:\\Riot Games\\League of Legends\\lockfile",
         "E:\\Riot Games\\League of Legends\\lockfile",
-        "F:\\Riot Games\\League of Legends\\lockfile"
+        "F:\\Riot Games\\League of Legends\\lockfile",
+        "G:\\Riot Games\\League of Legends\\lockfile",
+        "C:\\Program Files\\Riot Games\\Riot Client\\lockfile",
+        "C:\\Riot Games\\Riot Client\\lockfile"
       )
       foreach ($fp in $fixedPaths) {
         if (Test-Path $fp) {
@@ -104,10 +144,10 @@ export function findLolClient(): LcuConnectionInfo | null {
       }
 
       # 搜索 Riot Games 目录树（深度有限）
-      $roots = @("$env:ProgramFiles\\Riot Games", "\${env:ProgramFiles(x86)}\\Riot Games", "C:\\Riot Games", "D:\\Riot Games", "E:\\Riot Games")
+      $roots = @("$env:ProgramFiles\\Riot Games", "\${env:ProgramFiles(x86)}\\Riot Games", "C:\\Riot Games", "D:\\Riot Games", "E:\\Riot Games", "F:\\Riot Games", "G:\\Riot Games", "$env:LOCALAPPDATA\\Riot Games")
       foreach ($root in $roots) {
         if (Test-Path $root) {
-          $lf = Get-ChildItem -Path $root -Filter 'lockfile' -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object -First 1
+          $lf = Get-ChildItem -Path $root -Filter 'lockfile' -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($lf) {
             Get-Content $lf.FullName -Raw
             exit
@@ -119,12 +159,31 @@ export function findLolClient(): LcuConnectionInfo | null {
     if (foundLf) {
       const parsed = parseLockfile(foundLf)
       if (parsed) {
-        console.log(`[LCU:MAIN] 检测到 LCU (search): port=${parsed.port}, pid=${parsed.pid}`)
+        console.log(`[LCU:MAIN] 检测到 LCU (lockfile搜索): port=${parsed.port}, pid=${parsed.pid}`)
         return { ...parsed, region: '', rsoPlatformId: '' }
       }
     }
 
-    // ═══ 方案3：回退到进程命令行解析（部分系统需 admin 权限）══════
+    // ═══ 方案3：WMIC 直读命令行（不依赖 PowerShell，部分系统需 admin）══════
+    const wmicRaw = runWmic('LeagueClientUx.exe', 8000)
+    if (wmicRaw) {
+      const wmicParsed = parseWmicOutput(wmicRaw)
+      if (wmicParsed) {
+        console.log(`[LCU:MAIN] 检测到 LCU (WMIC): port=${wmicParsed.port}, pid=${wmicParsed.pid}`)
+        // 尝试从 lockfile 补全 region 信息
+        const extraInfo = runPsScript(`
+          $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = ${wmicParsed.pid}" | Select-Object -ExpandProperty CommandLine) 2>$null
+          $cmdline
+        `, 4000)
+        return {
+          ...wmicParsed,
+          region: extractFromCmdline(extraInfo, /--region=([\w\-_]+)/),
+          rsoPlatformId: extractFromCmdline(extraInfo, /--rso_platform_id=([\w\-_]+)/),
+        }
+      }
+    }
+
+    // ═══ 方案4：回退到 PowerShell Get-CimInstance 解析命令行（最终兜底）══════
     const cmdline = runPsScript(`
       $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
       if (-not $p) { exit }
@@ -143,9 +202,9 @@ export function findLolClient(): LcuConnectionInfo | null {
       `, 8000)
 
       if (diagResult) {
-        console.log(`[LCU:MAIN] 未找到 LeagueClientUx.exe，但检测到以下相关进程: ${diagResult.replace(/\n/g, ', ')}`)
+        console.log(`[LCU:MAIN] 全部4种方案均失败。检测到相关进程: ${diagResult.replace(/\n/g, ', ')}`)
       } else {
-        console.log('[LCU:MAIN] 未检测到任何 League/LOL/Riot 相关进程')
+        console.log('[LCU:MAIN] 全部4种方案均失败，且未检测到任何 LOL 进程 — 请确认游戏已启动并登录')
       }
       return null
     }
@@ -157,7 +216,7 @@ export function findLolClient(): LcuConnectionInfo | null {
       return null
     }
 
-    console.log(`[LCU:MAIN] 检测到 LCU (cmdline): port=${port}, region=${extractFromCmdline(cmdline, /--region=([\w\-_]+)/)}`)
+    console.log(`[LCU:MAIN] 检测到 LCU (PS cmdline): port=${port}, region=${extractFromCmdline(cmdline, /--region=([\w\-_]+)/)}`)
     return {
       port: parseInt(port),
       authToken,
@@ -194,6 +253,10 @@ function extractFromCmdline(cmdline: string, pattern: RegExp): string {
 
 /** LCU HTTP 请求默认超时（毫秒） */
 const LCU_HTTP_TIMEOUT = 15000
+/** 请求失败最大重试次数（仅对 ECONNREFUSED / 5xx 重试） */
+const MAX_RETRIES = 2
+/** 重试间隔基数（毫秒），实际延迟 = delay * (attempt + 1) */
+const RETRY_DELAY = 1000
 
 export class LcuHttpClient {
   private axios: AxiosInstance
@@ -215,15 +278,28 @@ export class LcuHttpClient {
   }
 
   async get<T = any>(endpoint: string): Promise<T> {
-    try {
-      const resp = await this.axios.get<T>(endpoint)
-      return resp.data
-    } catch (err: any) {
-      const status = err.response?.status || err.code || 'NET'
-      const detail = status === 404 ? ' (数据可能已过期或不存在)' : ''
-      console.error(`[LCU:MAIN] LCU API 请求失败 [${status}] ${endpoint}: ${err.message || err}${detail}`)
-      throw err
+    let lastErr: any
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const resp = await this.axios.get<T>(endpoint)
+        return resp.data
+      } catch (err: any) {
+        lastErr = err
+        const code = err.code || ''
+        const status = err.response?.status || 0
+        // 仅对连接拒绝和服务端临时错误重试
+        const retryable = code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ETIMEDOUT' ||
+          status === 502 || status === 503 || status === 504
+        if (!retryable || attempt === MAX_RETRIES) {
+          const detail = status === 404 ? ' (数据可能已过期或不存在)' : ''
+          console.error(`[LCU:MAIN] LCU API 请求失败 [${status || code}] ${endpoint}: ${err.message || err}${detail}`)
+          throw err
+        }
+        console.warn(`[LCU:MAIN] 请求失败 [${status || code}] ${endpoint}, ${RETRY_DELAY * (attempt + 1)}ms 后重试 (${attempt + 1}/${MAX_RETRIES})`)
+        await new Promise(r => setTimeout(r, RETRY_DELAY * (attempt + 1)))
+      }
     }
+    throw lastErr
   }
 
   // ── 召唤师与战绩 ──
