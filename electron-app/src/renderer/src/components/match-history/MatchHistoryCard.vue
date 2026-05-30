@@ -30,8 +30,8 @@
           <SummonerSpellDisplay :spell-id="game.spell2Id" :size="22" />
         </div>
 
-        <!-- 符文 (主系基石 + 副系风格) -->
-        <div class="perks">
+        <!-- 符文 (主系基石 + 副系风格) —— 海克斯大乱斗/竞技场无符文系统 -->
+        <div v-if="showPerks" class="perks">
           <PerkDisplay :perk-id="game.perk0" :size="22" />
           <PerkstyleDisplay :perkstyle-id="game.perkSubStyle" :size="22" />
         </div>
@@ -215,6 +215,11 @@ const formattedDuration = computed(() => formatGameDuration(game.gameDuration))
 const composedResultClass = computed(() => {
   if (game.gameMode === 'PRACTICETOOL') return 'remake'
   return game.win ? 'win' : 'lose'
+})
+
+/** 海克斯大乱斗、斗魂竞技场等模式不需要选符文，隐藏符文区域 */
+const showPerks = computed(() => {
+  return game.gameMode !== 'KIWI' && game.gameMode !== 'CHERRY'
 })
 
 /** 完美 KDA（0 死且有参与击杀） */

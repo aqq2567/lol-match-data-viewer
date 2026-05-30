@@ -4,6 +4,7 @@
  */
 import { findLolClient, LcuHttpClient } from './client'
 import type {
+  LcuConnectionInfo,
   PlayerStats,
   PlayerData,
   TeamData,
@@ -442,7 +443,7 @@ export async function fetchMatchList(
   _page: number = 1,
   _pageSize: number = 20
 ): Promise<MatchListData> {
-  const conn = findLolClient()
+  const conn = await findLolClient()
   if (!conn) throw new Error('未找到运行中的 LOL 客户端')
 
   const summoner = await client.getCurrentSummoner()
@@ -603,7 +604,7 @@ export async function fetchMatchListForPlayer(
   _page: number = 1,
   _pageSize: number = 20
 ): Promise<MatchListData> {
-  const conn = findLolClient()
+  const conn = await findLolClient()
   if (!conn) throw new Error('未找到运行中的 LOL 客户端')
 
   const [ranked, { summaries, totalGames }] = await Promise.all([
@@ -755,8 +756,8 @@ export async function fetchGameData(client: LcuHttpClient): Promise<GameDataCach
 export async function fetchAllMatchData(
   client: LcuHttpClient,
   gameCount: number
-): Promise<{ matchData: MatchData; connInfo: ReturnType<typeof findLolClient> }> {
-  const conn = findLolClient()
+): Promise<{ matchData: MatchData; connInfo: LcuConnectionInfo | null }> {
+  const conn = await findLolClient()
   if (!conn) throw new Error('未找到运行中的 LOL 客户端')
 
   const summoner = await client.getCurrentSummoner()

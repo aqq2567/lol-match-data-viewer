@@ -1,6 +1,6 @@
 {
   "name": "lol-match-data-viewer",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
   "description": "LCU 对战数据提取与分析桌面客户端",
   "main": "./out/main/index.js",

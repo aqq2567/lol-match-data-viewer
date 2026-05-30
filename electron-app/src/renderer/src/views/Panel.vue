@@ -6,7 +6,7 @@
     <div class="right-side-content">
       <RouterView v-slot="{ Component: ViewComponent }">
         <Transition name="fade">
-          <KeepAlive exclude="AnalysisView">
+          <KeepAlive>
             <component :is="ViewComponent" />
           </KeepAlive>
         </Transition>

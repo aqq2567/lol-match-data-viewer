@@ -140,10 +140,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  NButton, NInputNumber, NSelect, NIcon, NSpin, useMessage,
+  NButton, NInputNumber, NSelect, NIcon, NSpin, useMessage, useDialog,
 } from 'naive-ui'
 import {
   CloudDownloadOutline, RefreshOutline, AnalyticsOutline, PersonOutline,
@@ -165,6 +165,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog()
 const tabStore = useTabStore()
 const gds = useGameDataStore()
 
@@ -295,6 +296,24 @@ function toggleGame(gameId: number) {
 
 function goToAnalysis() {
   if (checkedRowKeys.value.length === 0) return
+
+  // 检查选中的对局是否属于同一模式
+  if (listData.value) {
+    const idSet = new Set(checkedRowKeys.value)
+    const selectedGames = listData.value.games.filter(g => idSet.has(g.gameId))
+    const modes = new Set(selectedGames.map(g => g.gameMode))
+    if (modes.size > 1) {
+      const modeNames = Array.from(modes)
+        .map(m => gameModeLabel({ gameMode: m, queueId: 0 }))
+      dialog.warning({
+        title: '模式不一致',
+        content: `选中的 ${selectedGames.length} 场对局包含不同模式（${modeNames.join('、')}）。分析不同模式的对局会导致统计数据失真，请仅选择同一模式的对局。`,
+        positiveText: '知道了',
+      })
+      return
+    }
+  }
+
   sessionStorage.setItem('analysisGameIds', JSON.stringify(checkedRowKeys.value))
   router.push({ name: 'analysis' })
 }
@@ -302,6 +321,16 @@ function goToAnalysis() {
 // 当 puuid 从空变为有效值时，自动加载数据
 watch(() => props.puuid, (newPuuid) => {
   if (newPuuid && !listData.value && !loading.value) {
+    refreshData()
+  }
+})
+
+// 标题栏刷新按钮 → 全局刷新所有标签页
+const refreshStamp = inject<Ref<number>>('refreshStamp', ref(0))
+let _localStamp = 0
+watch(refreshStamp, (val) => {
+  if (val > _localStamp) {
+    _localStamp = val
     refreshData()
   }
 })

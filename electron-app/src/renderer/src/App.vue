@@ -6,7 +6,6 @@
       :conn-status="connStatus"
       :conn-region="connRegion"
       @fetch="fetchData"
-      @import="importJson"
     />
     <div id="app-content">
       <RouterView v-slot="{ Component: ViewComponent }">
@@ -41,6 +40,10 @@ const message = useMessage()
 
 provide('matchData', matchData)
 
+/** 标题栏刷新触发器 —— PlayerGamesList 监听此值变化以重新加载 */
+const refreshStamp = ref(0)
+provide('refreshStamp', refreshStamp)
+
 onErrorCaptured((err, _instance, info) => {
   console.error(`[LCU:APP] 组件渲染错误: ${err}`, info)
   return false // 阻止错误继续传播
@@ -64,46 +67,14 @@ onMounted(async () => {
   }
 })
 
-/** 旧版：拉取完整数据（保留兼容，由标题栏按钮触发） */
-async function fetchData() {
+/** 标题栏刷新：触发所有 PlayerGamesList 重新加载对局数据 */
+function fetchData() {
   if (!window.lcuApi) {
     message.warning('LCU API 不可用，请在 Electron 环境中运行')
     return
   }
-
-  loading.value = true
-  try {
-    matchData.value = await window.lcuApi.fetchMatches(10)
-    message.success(`成功拉取 ${matchData.value.games_count} 场对局`)
-  } catch (e: any) {
-    message.error(`拉取失败: ${e.message || e}`)
-  } finally {
-    loading.value = false
-  }
-}
-
-/** JSON 文件导入（离线备用） */
-function importJson() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.json'
-  input.onchange = async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (file) {
-      loading.value = true
-      try {
-        const text = await file.text()
-        matchData.value = JSON.parse(text)
-        message.success(`成功导入 ${matchData.value?.games_count || 0} 场对局`)
-      } catch (err: any) {
-        console.error(`[LCU:APP] 文件导入失败: ${err.message || err}`)
-        message.error('文件读取失败')
-      } finally {
-        loading.value = false
-      }
-    }
-  }
-  input.click()
+  refreshStamp.value++
+  message.success('正在刷新所有对局数据...')
 }
 </script>
 

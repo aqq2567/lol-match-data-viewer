@@ -28,7 +28,6 @@
       :loading="loading"
       :has-lcu-api="hasLcuApi"
       @fetch="$emit('fetch')"
-      @import="$emit('import')"
     />
   </div>
 </template>
@@ -47,7 +46,6 @@ defineProps<{
 
 defineEmits<{
   fetch: []
-  import: []
 }>()
 </script>
 

@@ -5,6 +5,7 @@
 import { execSync } from 'child_process'
 import axios, { AxiosInstance } from 'axios'
 import https from 'https'
+import net from 'net'
 import type { LcuConnectionInfo } from '@shared/types'
 import type {
   ChampionSimple,
@@ -83,8 +84,20 @@ function parseWmicOutput(raw: string): { port: number; authToken: string; pid: n
   return null
 }
 
+/** 用 TCP 快速探测端口是否在监听（2 秒超时） */
+function tcpCheck(port: number, timeoutMs = 2000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = new net.Socket()
+    sock.setTimeout(timeoutMs)
+    sock.on('connect', () => { sock.destroy(); resolve(true) })
+    sock.on('error', () => { sock.destroy(); resolve(false) })
+    sock.on('timeout', () => { sock.destroy(); resolve(false) })
+    sock.connect(port, '127.0.0.1')
+  })
+}
+
 /** 通过 PowerShell 查找 LeagueClientUx.exe 进程并解析连接参数 */
-export function findLolClient(): LcuConnectionInfo | null {
+export async function findLolClient(): Promise<LcuConnectionInfo | null> {
   try {
     // ═══ 方案1：通过进程 Path 获取 lockfile 目录（大多数系统无需 admin）═════
     const lockfileResult = runPsScript(`
@@ -160,7 +173,13 @@ export function findLolClient(): LcuConnectionInfo | null {
       const parsed = parseLockfile(foundLf)
       if (parsed) {
         console.log(`[LCU:MAIN] 检测到 LCU (lockfile搜索): port=${parsed.port}, pid=${parsed.pid}`)
-        return { ...parsed, region: '', rsoPlatformId: '' }
+        // TCP 健康检查：验证该端口确实有 LCU 在监听（避免过期 lockfile）
+        const alive = await tcpCheck(parsed.port)
+        if (alive) {
+          console.log(`[LCU:MAIN] lockfile 端口 ${parsed.port} TCP 连通正常`)
+          return { ...parsed, region: '', rsoPlatformId: '' }
+        }
+        console.warn(`[LCU:MAIN] lockfile 端口 ${parsed.port} TCP 不通，可能为过期文件，继续尝试其他方案...`)
       }
     }
 

@@ -8,24 +8,14 @@
           </div>
         </div>
       </template>
-      拉取对局数据
-    </NTooltip>
-    <NTooltip :z-index="75000">
-      <template #trigger>
-        <div class="common-button-outer" @click="$emit('import')">
-          <div class="common-button-inner">
-            <NIcon><CloudUploadOutline /></NIcon>
-          </div>
-        </div>
-      </template>
-      导入 JSON
+      刷新对局数据
     </NTooltip>
   </div>
 </template>
 
 <script setup lang="ts">
 import { NIcon, NTooltip } from 'naive-ui'
-import { CloudUploadOutline, RefreshOutline } from '@vicons/ionicons5'
+import { RefreshOutline } from '@vicons/ionicons5'
 
 defineProps<{
   loading: boolean
@@ -34,7 +24,6 @@ defineProps<{
 
 defineEmits<{
   fetch: []
-  import: []
 }>()
 </script>
 

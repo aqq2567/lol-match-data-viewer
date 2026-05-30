@@ -54,11 +54,11 @@
                 <chevron-forward-outline />
               </n-icon>
               <span class="category-label">基础数据</span>
-              <span class="category-count">{{ statCategories.length }}</span>
+              <span class="category-count">{{ basicMetrics.length }}</span>
             </div>
             <div v-show="!basicDataCollapsed" class="category-items">
               <div
-                v-for="cat in statCategories"
+                v-for="cat in basicMetrics"
                 :key="cat.key"
                 class="metric-item"
                 :class="{ active: selectedMetric === cat.key }"
@@ -371,7 +371,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NDataTable,
@@ -393,6 +393,7 @@ import LcuImage from '@/components/widgets/LcuImage.vue'
 import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
 import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
 import { isBuildItem } from '@shared/utils/mappings'
+import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
 
 const router = useRouter()
@@ -402,8 +403,13 @@ const gds = useGameDataStore()
 const loading = ref(false)
 const result = ref<AnalysisResult | null>(null)
 
+/** 缓存：记录上次分析的 gameId 列表，重复进入时跳过加载 */
+let _lastAnalyzedIds: number[] = []
+
 /** 当前选中的指标 key */
 const selectedMetric = ref<string | null>(null)
+/** 当前分析的游戏模式（从加载的对局中检测） */
+const currentMode = ref<string>('')
 /** 基础数据目录是否折叠 */
 const basicDataCollapsed = ref(false)
 /** 高阶数据目录是否折叠 */
@@ -421,73 +427,26 @@ function profileIconUrl(iconId: number): string {
   return `/lol-game-data/assets/v1/profile-icons/${iconId || 0}.jpg`
 }
 
-/** 统计类别定义 */
-interface StatCategoryDef {
-  key: string
-  label: string
-  colorClass: string
-  getter: (s: PlayerStats) => number
-  fmt: (v: number) => string
-}
+/** 当前模式的基础指标 */
+const basicMetrics = computed<MetricDef[]>(() => {
+  if (!currentMode.value) return []
+  return getModeAnalysisConfig(currentMode.value).basicMetrics
+})
 
-const statCategories: StatCategoryDef[] = [
-  { key: 'kills', label: '击杀', colorClass: 'cat-red', getter: (s) => s.kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'deaths', label: '死亡', colorClass: 'cat-red', getter: (s) => s.deaths, fmt: (v) => String(Math.round(v)) },
-  { key: 'assists', label: '助攻', colorClass: 'cat-green', getter: (s) => s.assists, fmt: (v) => String(Math.round(v)) },
-  { key: 'kda', label: 'KDA', colorClass: 'cat-purple', getter: (s) => (s.kills + s.assists) / Math.max(s.deaths, 1), fmt: (v) => v.toFixed(2) },
-  { key: 'damage', label: '伤害', colorClass: 'cat-red', getter: (s) => s.damage.total_to_champs, fmt: (v) => fmtNum(v) },
-  { key: 'tank', label: '承伤', colorClass: 'cat-orange', getter: (s) => s.damage.total_taken, fmt: (v) => fmtNum(v) },
-  { key: 'largestCrit', label: '最大暴击', colorClass: 'cat-red', getter: (s) => s.damage.largest_critical_strike, fmt: (v) => fmtNum(v) },
-  { key: 'heal', label: '治疗', colorClass: 'cat-green', getter: (s) => s.survival.total_heal, fmt: (v) => fmtNum(v) },
-  { key: 'selfMitigated', label: '自我减伤', colorClass: 'cat-blue', getter: (s) => s.survival.damage_self_mitigated, fmt: (v) => fmtNum(v) },
-  { key: 'gold', label: '打钱', colorClass: 'cat-gold', getter: (s) => s.economy.gold_earned, fmt: (v) => fmtNum(v) },
-  { key: 'goldSpent', label: '花钱', colorClass: 'cat-gold', getter: (s) => s.economy.gold_spent, fmt: (v) => fmtNum(v) },
-  { key: 'cs', label: '补刀', colorClass: 'cat-gold', getter: (s) => s.cs.total, fmt: (v) => String(Math.round(v)) },
-  { key: 'vision', label: '视野', colorClass: 'cat-blue', getter: (s) => s.vision.score, fmt: (v) => String(Math.round(v)) },
-  { key: 'wardsPlaced', label: '插眼', colorClass: 'cat-blue', getter: (s) => s.vision.wards_placed, fmt: (v) => String(Math.round(v)) },
-  { key: 'wardsKilled', label: '排眼', colorClass: 'cat-blue', getter: (s) => s.vision.wards_killed, fmt: (v) => String(Math.round(v)) },
-  { key: 'ccDealt', label: '控制累计', colorClass: 'cat-purple', getter: (s) => s.cc.total_cc_dealt, fmt: (v) => Math.round(v) + 's' },
-  { key: 'firstBlood', label: '一血', colorClass: 'cat-red', getter: (s) => s.firsts.first_blood_kill ? 1 : 0, fmt: (v) => String(Math.round(v)) },
-  { key: 'firstTower', label: '一塔', colorClass: 'cat-gold', getter: (s) => s.firsts.first_tower_kill ? 1 : 0, fmt: (v) => String(Math.round(v)) },
-  { key: 'turrets', label: '推塔', colorClass: 'cat-gold', getter: (s) => s.objectives.turret_kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'dmgToTurrets', label: '对塔伤害', colorClass: 'cat-gold', getter: (s) => s.objectives.damage_to_turrets, fmt: (v) => fmtNum(v) },
-  { key: 'doubleKills', label: '双杀', colorClass: 'cat-red', getter: (s) => s.double_kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'tripleKills', label: '三杀', colorClass: 'cat-red', getter: (s) => s.triple_kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'quadraKills', label: '四杀', colorClass: 'cat-red', getter: (s) => s.quadra_kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'pentaKills', label: '五杀', colorClass: 'cat-red', getter: (s) => s.penta_kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'inhibitorKills', label: '破水晶', colorClass: 'cat-gold', getter: (s) => s.objectives.inhibitor_kills, fmt: (v) => String(Math.round(v)) },
-  { key: 'largestKillingSpree', label: '最大连杀', colorClass: 'cat-red', getter: (s) => s.largest_killing_spree, fmt: (v) => String(Math.round(v)) },
-  { key: 'killingSprees', label: '连杀次数', colorClass: 'cat-red', getter: (s) => s.killing_sprees, fmt: (v) => String(Math.round(v)) },
-  { key: 'largestMultiKill', label: '最大多杀', colorClass: 'cat-red', getter: (s) => s.largest_multi_kill, fmt: (v) => String(Math.round(v)) },
-  { key: 'longestTimeSpentLiving', label: '最长存活(秒)', colorClass: 'cat-green', getter: (s) => s.survival.longest_time_living, fmt: (v) => String(Math.round(v)) },
-  { key: 'neutralMinionsKilled', label: '野怪击杀', colorClass: 'cat-gold', getter: (s) => s.cs.neutral_total, fmt: (v) => String(Math.round(v)) },
-  { key: 'combatScore', label: '战斗评分', colorClass: 'cat-purple', getter: (s) => s.scores.combat, fmt: (v) => fmtNum(v) },
-  { key: 'items', label: '装备', colorClass: 'cat-gold', getter: () => 0, fmt: () => '' },
-  { key: 'augments', label: '海克斯', colorClass: 'cat-purple', getter: () => 0, fmt: () => '' },
-  { key: 'championPool', label: '英雄池', colorClass: 'cat-blue', getter: () => 0, fmt: () => '' },
-]
-
-/** 高阶数据指标定义 */
-const advancedCategories: StatCategoryDef[] = [
-  { key: 'dmgPerGold', label: '伤害/经济', colorClass: 'cat-red', getter: (s) => s.damage.total_to_champs / Math.max(s.economy.gold_earned, 1), fmt: (v) => v.toFixed(2) },
-  { key: 'dmgPerKill', label: '伤害/击杀', colorClass: 'cat-orange', getter: (s) => s.damage.total_to_champs / Math.max(s.kills, 1), fmt: (v) => fmtNum(v) },
-  { key: 'dmgPerDeath', label: '伤害/死亡', colorClass: 'cat-purple', getter: (s) => s.damage.total_to_champs / Math.max(s.deaths, 1), fmt: (v) => fmtNum(v) },
-
-  { key: 'dmgShare', label: '伤害占比', colorClass: 'cat-red', getter: () => 0, fmt: (v) => (v * 100).toFixed(1) + '%' },
-  { key: 'dmgTakenShare', label: '承伤占比', colorClass: 'cat-blue', getter: () => 0, fmt: (v) => (v * 100).toFixed(1) + '%' },
-
-]
-/** 高阶数据指标 */
-const advancedMetrics = computed<StatCategoryDef[]>(() => advancedCategories)
+/** 当前模式的高阶指标 */
+const advancedMetrics = computed<MetricDef[]>(() => {
+  if (!currentMode.value) return []
+  return getModeAnalysisConfig(currentMode.value).advancedMetrics
+})
 
 /** 判断是否为高阶指标 */
 function isAdvancedMetric(key: string | null): boolean {
-  return advancedCategories.some((c) => c.key === key)
+  return advancedMetrics.value.some((c) => c.key === key)
 }
 
 const selectedCategory = computed(() =>
-  statCategories.find((c) => c.key === selectedMetric.value)
-  || advancedCategories.find((c) => c.key === selectedMetric.value)
+  basicMetrics.value.find((c) => c.key === selectedMetric.value)
+  || advancedMetrics.value.find((c) => c.key === selectedMetric.value)
   || null
 )
 
@@ -682,51 +641,27 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
 })
 
 /**
- * 第 1 名领奖台自定义称号映射
- * 按 metric key 配置，未配置的指标不显示称号
- * 示例：死亡最多 → 「沙包」，击杀最多 → 「战神」
+ * 第 1 名领奖台自定义称号映射（从模式配置读取）
  */
 const firstPlaceTitle = computed(() => {
-  const map: Record<string, string> = {
-    deaths: '无暇赴死',
-    assists:'我K不到啊',
-    damage:'我真尽力了',
-    tank:'耐打王',
-    largestCrit:'艺术就是核爆',
-    heal:"奶一口奶一口奶一口",
-    selfMitigated:'不疼',
-    gold:'大富翁',
-    cs:'Choooooooooovy!',
-    ccDealt:'就是折磨就是胶粘',
-    longestTimeSpentLiving:'赖着不死',
-  }
-  return selectedMetric.value ? (map[selectedMetric.value] || '') : ''
+  if (!selectedMetric.value || !currentMode.value) return ''
+  const cfg = getModeAnalysisConfig(currentMode.value)
+  return cfg.podiumTitles[selectedMetric.value] || ''
 })
 
 /**
- * 高阶数据首末名标签映射
- * 按 metric key 配置「最佳」和「最末」的显示文字
+ * 高阶数据首末名标签映射（从模式配置读取）
  */
 const advancedBestTitle = computed(() => {
-  const map: Record<string, string> = {
-    dmgPerGold: '吃草挤奶',
-    dmgPerKill: 'K头有用',
-    dmgPerDeath: '自爆卡车',
-    dmgShare: '全靠队友',
-    dmgTakenShare: '抗在前面',
-  }
-  return selectedMetric.value ? (map[selectedMetric.value] || '最佳') : '最佳'
+  if (!selectedMetric.value || !currentMode.value) return '最佳'
+  const cfg = getModeAnalysisConfig(currentMode.value)
+  return cfg.advancedBestTitles[selectedMetric.value] || '最佳'
 })
 
 const advancedWorstTitle = computed(() => {
-  const map: Record<string, string> = {
-    dmgPerGold: '吃奶挤草',
-    dmgShare: '查无此人',
-    dmgTakenShare: '躲在后面',
-    dmgPerKill: 'Kobe',
-    dmgPerDeath: '其实我是辅助',
-  }
-  return selectedMetric.value ? (map[selectedMetric.value] || '最末') : '最末'
+  if (!selectedMetric.value || !currentMode.value) return '最末'
+  const cfg = getModeAnalysisConfig(currentMode.value)
+  return cfg.advancedWorstTitles[selectedMetric.value] || '最末'
 })
 
 /** 排名表最大高度：约10行 */
@@ -749,7 +684,7 @@ const metricPodium = computed<PodiumEntry[]>(() => {
   for (const g of games) {
     for (const p of [...g.blue_team.players, ...g.red_team.players]) {
       const name = p.summoner_name
-      const val = statCategories.find((c) => c.key === cat.key)!.getter(p.stats)
+      const val = cat.getter(p.stats)
       if (!playerAgg.has(name)) {
         playerAgg.set(name, { total: 0, count: 0 })
       }
@@ -765,7 +700,7 @@ const metricPodium = computed<PodiumEntry[]>(() => {
       const kda = full.totalDeaths > 0
         ? ((full.totalKills + full.totalAssists) / full.totalDeaths).toFixed(2)
         : (full.totalKills + full.totalAssists).toFixed(1)
-      const fmt = statCategories.find((c) => c.key === cat.key)!.fmt
+      const fmt = cat.fmt
       return {
         playerName: name,
         profileIconId: full.profileIconId,
@@ -1128,11 +1063,29 @@ async function loadAnalysis() {
   const gameIds: number[] = JSON.parse(rawIds)
   if (!gameIds.length) return
 
+  // 与上次分析的对局 ID 一致则直接复用缓存，跳过重新加载
+  if (
+    _lastAnalyzedIds.length === gameIds.length &&
+    _lastAnalyzedIds.every((id, i) => id === gameIds[i]) &&
+    result.value
+  ) {
+    console.log(`[LCU:ANALYSIS] 分析结果已缓存，跳过重新加载: ${gameIds.length} 场`)
+    return
+  }
+
   console.log(`[LCU:ANALYSIS] 开始分析: ${gameIds.length} 场对局, ids=${gameIds.join(',')}`)
   loading.value = true
   try {
     const games = await window.lcuApi.fetchGameDetails(gameIds)
     console.log(`[LCU:ANALYSIS] 对局数据拉取完成: ${games.length} 场`)
+
+    // 检测游戏模式
+    const modes = new Set(games.map(g => g.game_mode))
+    currentMode.value = modes.size === 1 ? [...modes][0] : ''
+    if (currentMode.value) {
+      const cfg = getModeAnalysisConfig(currentMode.value)
+      console.log(`[LCU:ANALYSIS] 检测到模式: ${cfg.displayName} (${currentMode.value})`)
+    }
 
     const playerMap = new Map<string, {
       puuid: string
@@ -1199,6 +1152,7 @@ async function loadAnalysis() {
       players,
     }
 
+    _lastAnalyzedIds = gameIds
     ;(window as any).__analysisGames = games
   } catch (e: any) {
     message.error(`分析失败: ${e.message || e}`)
@@ -1314,6 +1268,10 @@ const advancedRankingColumns = computed(() => {
 })
 
 onMounted(() => {
+  loadAnalysis()
+})
+
+onActivated(() => {
   loadAnalysis()
 })
 </script>
