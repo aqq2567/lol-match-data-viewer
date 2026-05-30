@@ -10,7 +10,9 @@ import axios, { AxiosInstance } from 'axios'
 import http from 'http'
 import https from 'https'
 import { is } from '@electron-toolkit/utils'
+import { autoUpdater } from 'electron-updater'
 import { logger } from './utils/logger'
+import { initAutoUpdater } from './utils/updater'
 import { registerLcuHandlers } from './ipc/lcu-handlers'
 import type { LcuConnectionInfo } from '@shared/types'
 
@@ -193,6 +195,12 @@ ipcMain.handle('log:write', async (_event, level: string, ...args: any[]) => {
   logger.renderer(level, 'RENDERER', msg)
 })
 
+// 更新相关 handler
+ipcMain.handle('update:quit-and-install', () => {
+  console.log('[UPDATER] 用户请求安装更新并重启')
+  autoUpdater.quitAndInstall()
+})
+
 // LCU 相关 handler（通过回调同步认证信息给 lcu-asset 协议代理）
 registerLcuHandlers({
   onConnectionFound(conn: LcuConnectionInfo) {
@@ -214,6 +222,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   registerLcuAssetProtocol()
   createWindow()
+  initAutoUpdater(() => mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

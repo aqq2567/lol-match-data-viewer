@@ -1,6 +1,6 @@
 {
   "name": "lol-match-data-viewer",
-  "version": "0.1.0",
+  "version": "3.4.0",
   "private": true,
   "description": "LCU 对战数据提取与分析桌面客户端",
   "main": "./out/main/index.js",
@@ -8,13 +8,14 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && electron-builder --win dir",
+    "package": "electron-vite build && electron-builder --win",
     "package:icon": "python -c \"from PIL import Image; img = Image.open('build/icon.png'); img.save('build/icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])\"",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
-    "axios": "^1.10.0"
+    "axios": "^1.10.0",
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "@vicons/ionicons5": "^0.13.0",
@@ -46,9 +47,24 @@
       "out/**/*",
       "package.json"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "aqq2567",
+        "repo": "lol-match-data-viewer"
+      }
+    ],
     "win": {
-      "target": "dir",
+      "target": "nsis",
       "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     },
     "protocols": [
       {

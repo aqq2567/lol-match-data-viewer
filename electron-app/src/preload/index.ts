@@ -61,6 +61,18 @@ const api = {
     console.log('[LCU:PRELOAD] fetchGameData 调用')
     return ipcRenderer.invoke('lcu:fetch-game-data')
   },
+
+  /** 监听更新状态变化 */
+  onUpdateStatus(callback: (status: any) => void): () => void {
+    const handler = (_event: any, status: any) => callback(status)
+    ipcRenderer.on('update-status', handler)
+    return () => ipcRenderer.removeListener('update-status', handler)
+  },
+
+  /** 立即安装更新并重启 */
+  quitAndInstall(): void {
+    ipcRenderer.invoke('update:quit-and-install')
+  },
 }
 
 contextBridge.exposeInMainWorld('lcuApi', api)

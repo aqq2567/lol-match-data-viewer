@@ -257,7 +257,7 @@ const friends = computed<FriendStats[]>(() => {
 
 const summary = computed<FriendSummary>(() => {
   if (!matchData.value) {
-    return { totalFriends: 0, mostPlayed: null, bestWinRate: null, totalGames: 0 }
+    return { totalFriends: 0, mostPlayed: null, bestWinRate: null, totalGames: 0, bestCollector: null, bestHeartsteel: null }
   }
   return computeFriendSummary(friends.value, matchData.value.games.length)
 })
