@@ -1,11 +1,8 @@
 <template>
   <div id="app-frame">
     <MainWindowTitleBar
-      :loading="loading"
-      :has-lcu-api="hasLcuApi"
       :conn-status="connStatus"
       :conn-region="connRegion"
-      @fetch="fetchData"
     />
     <div id="app-content">
       <RouterView v-slot="{ Component: ViewComponent }">
@@ -24,8 +21,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide, onErrorCaptured } from 'vue'
-import { useMessage } from 'naive-ui'
+import { ref, onMounted, provide, onErrorCaptured, h } from 'vue'
+import { useNotification, NButton } from 'naive-ui'
 import type { MatchData } from '@shared/types'
 
 import MainWindowTitleBar from '@/components/title-bar/MainWindowTitleBar.vue'
@@ -35,14 +32,9 @@ const loading = ref(false)
 const connStatus = ref<'disconnected' | 'loading' | 'connected'>('disconnected')
 const connRegion = ref('')
 const hasLcuApi = ref(typeof window.lcuApi !== 'undefined')
-
-const message = useMessage()
+const notification = useNotification()
 
 provide('matchData', matchData)
-
-/** 标题栏刷新触发器 —— PlayerGamesList 监听此值变化以重新加载 */
-const refreshStamp = ref(0)
-provide('refreshStamp', refreshStamp)
 
 onErrorCaptured((err, _instance, info) => {
   console.error(`[LCU:APP] 组件渲染错误: ${err}`, info)
@@ -52,6 +44,39 @@ onErrorCaptured((err, _instance, info) => {
 onMounted(async () => {
   if (!hasLcuApi.value) return
   connStatus.value = 'loading'
+
+  // 监听自动更新状态
+  if (window.lcuApi.onUpdateStatus) {
+    let downloadingNotice: ReturnType<typeof notification.info> | null = null
+    window.lcuApi.onUpdateStatus((status: any) => {
+      if (status.status === 'downloading') {
+        if (!downloadingNotice) {
+          downloadingNotice = notification.info({
+            title: '检测到新版本',
+            content: `正在下载 v${status.version || ''}...`,
+            duration: 0,
+            closable: false,
+          })
+        }
+      } else if (status.status === 'downloaded') {
+        downloadingNotice?.destroy()
+        downloadingNotice = null
+        notification.success({
+          title: '更新已就绪',
+          content: '新版本已下载完成，重启应用后生效',
+          duration: 0,
+          closable: true,
+          action: () =>
+            h(
+              NButton,
+              { size: 'small', onClick: () => window.lcuApi.quitAndInstall() },
+              () => '立即重启'
+            ),
+        })
+      }
+    })
+  }
+
   try {
     const conn = await window.lcuApi.checkConnection()
     if (conn) {
@@ -66,16 +91,6 @@ onMounted(async () => {
     connStatus.value = 'disconnected'
   }
 })
-
-/** 标题栏刷新：触发所有 PlayerGamesList 重新加载对局数据 */
-function fetchData() {
-  if (!window.lcuApi) {
-    message.warning('LCU API 不可用，请在 Electron 环境中运行')
-    return
-  }
-  refreshStamp.value++
-  message.success('正在刷新所有对局数据...')
-}
 </script>
 
 <style lang="less">

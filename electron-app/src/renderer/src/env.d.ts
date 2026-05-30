@@ -18,6 +18,8 @@ interface LcuApi {
   fetchMatches(gameCount?: number): Promise<import('@shared/types').MatchData>
   fetchGame(gameId: number): Promise<any>
   fetchGameData(): Promise<import('@shared/types').GameDataCache>
+  onUpdateStatus(callback: (status: any) => void): () => void
+  quitAndInstall(): void
 }
 
 declare global {

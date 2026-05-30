@@ -24,29 +24,21 @@
       </n-tag>
     </div>
     <div class="divider" />
-    <CommonButtons
-      :loading="loading"
-      :has-lcu-api="hasLcuApi"
-      @fetch="$emit('fetch')"
-    />
+    <span class="app-version">v{{ appVersion }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { NIcon, NTag } from 'naive-ui'
 import { CheckmarkCircleOutline } from '@vicons/ionicons5'
-import CommonButtons from './CommonButtons.vue'
+import pkg from '../../../../../package.json'
 
 defineProps<{
-  loading: boolean
-  hasLcuApi: boolean
   connStatus: 'connected' | 'loading' | 'disconnected'
   connRegion: string
 }>()
 
-defineEmits<{
-  fetch: []
-}>()
+const appVersion = pkg.version
 </script>
 
 <style lang="less" scoped>
@@ -96,5 +88,12 @@ defineEmits<{
   box-sizing: border-box;
   margin: 0 8px;
   background-color: var(--divider-color);
+}
+
+.app-version {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-right: 12px;
+  -webkit-app-region: no-drag;
 }
 </style>
