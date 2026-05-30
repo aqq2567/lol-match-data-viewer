@@ -414,6 +414,12 @@ function buildMatchListData(
     return g
   })
 
+  const withDetail = rawGames.filter(g => g.participants?.length > 0).length
+  const withoutDetail = rawGames.length - withDetail
+  if (withoutDetail > 0) {
+    console.warn(`[LCU:MAIN] buildMatchListData: ${withoutDetail}/${rawGames.length} 场缺少详情数据，好友分析将不完整`)
+  }
+
   rawGames.sort((a, b) => {
     const ta = a.gameCreationDate ? new Date(a.gameCreationDate).getTime() : (a.gameCreation || 0)
     const tb = b.gameCreationDate ? new Date(b.gameCreationDate).getTime() : (b.gameCreation || 0)
@@ -471,6 +477,10 @@ export async function fetchMatchList(
 function buildGameSummary(g: any, selfPuuid: string): GameSummary {
   const participants: any[] = g.participants || []
   const identities: any[] = g.participantIdentities || []
+
+  if (participants.length === 0) {
+    console.warn(`[LCU:MAIN] buildGameSummary: gameId=${g.gameId} 无 participants 数据，跳过队友提取`)
+  }
 
   // 构建参与者身份映射 participantId → player
   const idMap: Record<number, any> = {}

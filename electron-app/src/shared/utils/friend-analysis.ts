@@ -84,10 +84,21 @@ export function analyzeFriends(games: GameSummary[], targetPuuid: string): Frien
     f.soloWinRate = soloTotal > 0 ? soloWins / soloTotal : 0
   }
 
-  return Array.from(map.values())
+  const result = Array.from(map.values())
     .filter(f => f.gamesTogether >= 3)
     .sort((a, b) => b.gamesTogether - a.gamesTogether)
-}
+
+  const gamesMissingTeammates = validGames.filter(g => {
+    const t = g.teamId === 100 ? g.blueParticipants : g.redParticipants
+    return t.length <= 1
+  }).length
+
+  console.log(
+    `[FRIEND] analyzeFriends: ${validGames.length} 有效对局 → ${map.size} 个不同队友 → ${result.length} 个达标(≥3场)` +
+    (gamesMissingTeammates > 0 ? ` ⚠️ ${gamesMissingTeammates} 场队友数据不完整` : '')
+  )
+
+  return result
 
 function friendDisplayName(p: ParticipantBrief): string {
   if (p.gameName) {

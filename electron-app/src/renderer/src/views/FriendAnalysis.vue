@@ -530,7 +530,8 @@ async function loadData() {
   try {
     const data = await window.lcuApi.fetchMatchList(1, 100)
     matchData.value = data
-    console.log(`[LCU:FRIEND] 好友分析数据加载完成: ${data.games.length} 场对局, puuid=${data.summoner.puuid.slice(0, 8)}…`)
+    const withP = data.games.filter(g => g.blueParticipants.length > 0 || g.redParticipants.length > 0).length
+    console.log(`[LCU:FRIEND] 好友分析加载完成: ${data.games.length} 场 (含队友 ${withP} 场), puuid=${data.summoner.puuid.slice(0, 8)}…`)
   } catch (e: any) {
     const msg = e.message || String(e)
     if (msg.includes('未连接') || msg.includes('not connected') || msg.includes('LCU')) {
