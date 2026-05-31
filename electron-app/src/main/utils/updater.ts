@@ -20,7 +20,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
 
   // 自动下载，安装前提示
   autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on('checking-for-update', () => {
     console.log('[UPDATER] 正在检查更新...')

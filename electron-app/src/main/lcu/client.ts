@@ -36,7 +36,8 @@ function encodePsCommand(script: string): string {
  * 执行 PowerShell 脚本，返回 stdout 字符串。失败时返回空串不抛异常
  */
 function runPsScript(script: string, timeout: number): string {
-  const encoded = encodePsCommand(script)
+  // 必须静默进度流，否则 "正在准备模块" 等 CLIXML 会污染 stdout
+  const encoded = encodePsCommand('$ProgressPreference = "SilentlyContinue"\n' + script)
   try {
     return execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${encoded}`, {
       encoding: 'utf-8',

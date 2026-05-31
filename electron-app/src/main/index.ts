@@ -269,12 +269,15 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit()
+    app.exit(0)
   }
 })
 
 app.on('before-quit', () => {
-  mainWindow = null
+  if (mainWindow) {
+    mainWindow.destroy()
+    mainWindow = null
+  }
   logger.info('SYSTEM', '应用退出，关闭日志')
   logger.close()
 })
