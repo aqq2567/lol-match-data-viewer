@@ -66,6 +66,8 @@ console.error = (...args: any[]) => {
 }
 
 let mainWindow: BrowserWindow | null = null
+/** 标记是否正在执行 quitAndInstall，此时不应 app.exit(0) 以免中断更新安装重启 */
+let isQuitAndInstall = false
 
 /** 缓存的 LCU 认证信息，供 lcu-asset 协议代理使用 */
 let _lcuAuth: string | null = null
@@ -200,7 +202,8 @@ ipcMain.handle('log:write', async (_event, level: string, ...args: any[]) => {
 // 更新相关 handler
 ipcMain.handle('update:quit-and-install', () => {
   console.log('[UPDATER] 用户请求安装更新并重启（静默模式）')
-  autoUpdater.quitAndInstall(true, true)
+  isQuitAndInstall = true
+	autoUpdater.quitAndInstall(true, true)
 })
 
 ipcMain.handle('update:check', async () => {
@@ -269,7 +272,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.exit(0)
+    if (isQuitAndInstall) {
+      // 更新安装重启：不调用 app.exit(0)，让 electron-updater 完成安装后自动重启
+    } else {
+      app.exit(0)
+    }
   }
 })
 
