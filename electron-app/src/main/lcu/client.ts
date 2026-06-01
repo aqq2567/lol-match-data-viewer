@@ -19,6 +19,38 @@ import type {
 } from '@shared/types/app'
 
 // ═══════════════════════════════════════════════════════════
+// 诊断工具
+// ═══════════════════════════════════════════════════════════
+
+/** findLolClient 调用序号，方便跨调用追踪 */
+let _findCallSeq = 0
+
+/** 用 process.kill(pid, 0) 检查 PID 是否存活（Windows 兼容） */
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 获取文件 mtime 到现在经过的秒数（用于判断 lockfile 新旧） */
+function lockfileAgeSeconds(filePath: string): number {
+  try {
+    return (Date.now() - fs.statSync(filePath).mtimeMs) / 1000
+  } catch {
+    return -1
+  }
+}
+
+/** 脱敏 authToken：仅保留前 4 位和后 4 位 */
+function maskToken(tok: string): string {
+  if (tok.length <= 8) return tok.slice(0, 2) + '***'
+  return tok.slice(0, 4) + '…' + tok.slice(-4)
+}
+
+// ═══════════════════════════════════════════════════════════
 // 连接发现
 // ═══════════════════════════════════════════════════════════
 
@@ -37,7 +69,6 @@ function encodePsCommand(script: string): string {
  * 执行 PowerShell 脚本，返回 stdout 字符串。失败时返回空串不抛异常
  */
 function runPsScript(script: string, timeout: number): string {
-  // 必须静默进度流，否则 "正在准备模块" 等 CLIXML 会污染 stdout
   const encoded = encodePsCommand('$ProgressPreference = "SilentlyContinue"\n' + script)
   try {
     return execSync(`powershell -NoProfile -NonInteractive -EncodedCommand ${encoded}`, {
@@ -72,10 +103,9 @@ function parseWmicOutput(raw: string): { port: number; authToken: string; pid: n
   const lines = raw.split('\n')
   for (const line of lines) {
     if (!line.includes('LeagueClientUx')) continue
-    // CSV 格式: Node,CommandLine,ProcessId
     const match = line.match(/^[^,]*,(.+),(\d+)$/)
     if (!match) continue
-    const cmdline = match[1].replace(/^"|"$/g, '') // 去掉 CSV 引号包裹
+    const cmdline = match[1].replace(/^"|"$/g, '')
     const pid = parseInt(match[2]) || 0
     const port = extractFromCmdline(cmdline, /--app-port=(\d+)/)
     const authToken = extractFromCmdline(cmdline, /--remoting-auth-token=([\w\-_]+)/)
@@ -86,10 +116,11 @@ function parseWmicOutput(raw: string): { port: number; authToken: string; pid: n
   return null
 }
 
-/** 用真实 HTTPS 请求验证 LCU API 服务是否就绪（5 秒超时）
- *  不能只用 TCP check — LCU 端口可能已绑定但 HTTPS 服务尚未初始化完成，
- *  导致后续 API 调用全部 ECONNREFUSED */
-function lcuAliveCheck(port: number, authToken: string, timeoutMs = 5000): Promise<boolean> {
+/** 用真实 HTTPS 请求验证 LCU API 服务是否就绪（5 秒超时） */
+function lcuAliveCheck(
+  port: number, authToken: string, timeoutMs = 5000
+): Promise<{ ok: boolean; statusCode?: number; errorCode?: string }> {
+  const t0 = Date.now()
   return new Promise((resolve) => {
     const auth = Buffer.from(`riot:${authToken}`).toString('base64')
     const req = https.request({
@@ -101,11 +132,23 @@ function lcuAliveCheck(port: number, authToken: string, timeoutMs = 5000): Promi
       rejectUnauthorized: false,
       timeout: timeoutMs,
     }, (res) => {
+      const elapsed = Date.now() - t0
       res.resume()
-      resolve(true)
+      console.log(`[LCU:DIAG]   lcuAliveCheck OK: port=${port} status=${res.statusCode} elapsed=${elapsed}ms`)
+      resolve({ ok: true, statusCode: res.statusCode })
     })
-    req.on('error', () => { req.destroy(); resolve(false) })
-    req.on('timeout', () => { req.destroy(); resolve(false) })
+    req.on('error', (err: any) => {
+      const elapsed = Date.now() - t0
+      console.log(`[LCU:DIAG]   lcuAliveCheck 失败: port=${port} code=${err.code || 'none'} message=${err.message} elapsed=${elapsed}ms`)
+      req.destroy()
+      resolve({ ok: false, errorCode: err.code })
+    })
+    req.on('timeout', () => {
+      const elapsed = Date.now() - t0
+      console.log(`[LCU:DIAG]   lcuAliveCheck 超时: port=${port} elapsed=${elapsed}ms`)
+      req.destroy()
+      resolve({ ok: false, errorCode: 'TIMEOUT' })
+    })
     req.end()
   })
 }
@@ -124,11 +167,16 @@ function findLockfiles(): string[] {
     'F:\\Riot Games', 'G:\\Riot Games',
   ]
 
+  const existingRoots: string[] = []
   const results: string[] = []
   for (const root of roots) {
-    if (!fs.existsSync(root)) continue
-    walk(root, 3)
+    if (fs.existsSync(root)) {
+      existingRoots.push(root)
+      walk(root, 3)
+    }
   }
+  console.log(`[LCU:DIAG] 扫描 Riot Games 目录: ${existingRoots.length} 个存在, 找到 ${results.length} 个 lockfile` +
+    (results.length ? ` => ${results.join(', ')}` : ''))
   return results
 
   function walk(dir: string, depth: number) {
@@ -148,22 +196,47 @@ function findLockfiles(): string[] {
 
 /** 通过 Node.js 文件搜索 + PS 命令行兜底 查找 LCU 连接参数 */
 export async function findLolClient(): Promise<LcuConnectionInfo | null> {
+  const callSeq = ++_findCallSeq
+  const t0 = Date.now()
+  console.log(`[LCU:DIAG] findLolClient #${callSeq} 开始`)
+
   try {
     // ═══ 方案1：Node.js 搜索 lockfile（无需 PowerShell / 无需管理员）══════
     const lockfiles = findLockfiles()
     for (const lf of lockfiles) {
+      const t1 = Date.now()
       try {
+        const age = lockfileAgeSeconds(lf)
         const content = fs.readFileSync(lf, 'utf-8')
-        const parsed = parseLockfile(content)
+        const parsed = parseLockfileWithDiag(lf, content)
         if (!parsed) continue
+
+        // 检查 PID 是否存活
+        const pidAlive = isPidAlive(parsed.pid)
+        console.log(`[LCU:DIAG] lockfile: ${lf} age=${age.toFixed(0)}s pid=${parsed.pid} pidAlive=${pidAlive} port=${parsed.port} token=${maskToken(parsed.authToken)}`)
+
+        if (!pidAlive) {
+          console.log(`[LCU:DIAG]   PID ${parsed.pid} 不存在，跳过此 lockfile（可能是旧进程残留）`)
+          continue
+        }
+
+        // HTTPS 活跃性检查
         const alive = await lcuAliveCheck(parsed.port, parsed.authToken)
-        if (!alive) continue
-        console.log(`[LCU:MAIN] 检测到 LCU (Node.js lockfile): port=${parsed.port}, pid=${parsed.pid}, path=${lf}`)
+        if (!alive.ok) {
+          console.log(`[LCU:DIAG]   lcuAliveCheck 未通过 (errorCode=${alive.errorCode})，继续下一个`)
+          continue
+        }
+
+        const totalElapsed = Date.now() - t0
+        console.log(`[LCU:MAIN] 检测到 LCU (方案1): port=${parsed.port}, pid=${parsed.pid}, path=${lf}, totalElapsed=${totalElapsed}ms`)
         return { ...parsed, region: '', rsoPlatformId: '' }
-      } catch { /* 文件被删除/权限不足，继续下一个 */ }
+      } catch (e: any) {
+        console.log(`[LCU:DIAG] lockfile 异常: ${lf} err=${e.message || e}`)
+      }
     }
 
     // ═══ 方案2：PowerShell 通过进程路径找 lockfile（需能访问 .Path 属性）══════
+    const psT0 = Date.now()
     const lockfileResult = runPsScript(`
       $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
       if (-not $p) { exit 0 }
@@ -173,43 +246,50 @@ export async function findLolClient(): Promise<LcuConnectionInfo | null> {
         if (Test-Path $lf) { Get-Content $lf -Raw }
       } catch {}
     `, PS_EXEC_TIMEOUT)
+    console.log(`[LCU:DIAG] 方案2 PS lockfile: elapsed=${Date.now() - psT0}ms result=${lockfileResult ? maskToken(lockfileResult) : '(空)'}`)
 
     if (lockfileResult) {
       const parsed = parseLockfile(lockfileResult)
       if (parsed) {
-        console.log(`[LCU:MAIN] 检测到 LCU (PS lockfile): port=${parsed.port}, pid=${parsed.pid}`)
-        // 尝试获取 region（可选，失败不影响）
+        console.log(`[LCU:MAIN] 检测到 LCU (方案2): port=${parsed.port}, pid=${parsed.pid}, pidAlive=${isPidAlive(parsed.pid)}`)
         const region = runPsScript(`
           $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = ${parsed.pid}" | Select-Object -ExpandProperty CommandLine) 2>$null
           $cmdline
         `, 4000)
-        return {
+        const conn: LcuConnectionInfo = {
           ...parsed,
           region: extractFromCmdline(region, /--region=([\w\-_]+)/),
           rsoPlatformId: extractFromCmdline(region, /--rso_platform_id=([\w\-_]+)/),
         }
+        console.log(`[LCU:DIAG] findLolClient #${callSeq} 完成 (方案2): totalElapsed=${Date.now() - t0}ms`)
+        return conn
       }
     }
 
     // ═══ 方案3：WMIC 读命令行（Win10 可用，Win11 24H2 已移除）══════
+    const wmicT0 = Date.now()
     const wmicRaw = runWmic('LeagueClientUx.exe', 8000)
+    console.log(`[LCU:DIAG] 方案3 WMIC: elapsed=${Date.now() - wmicT0}ms resultLen=${wmicRaw.length}`)
     if (wmicRaw) {
       const wmicParsed = parseWmicOutput(wmicRaw)
       if (wmicParsed) {
-        console.log(`[LCU:MAIN] 检测到 LCU (WMIC): port=${wmicParsed.port}, pid=${wmicParsed.pid}`)
+        console.log(`[LCU:MAIN] 检测到 LCU (方案3): port=${wmicParsed.port}, pid=${wmicParsed.pid}, pidAlive=${isPidAlive(wmicParsed.pid)}`)
         const region = runPsScript(`
           $cmdline = (Get-CimInstance Win32_Process -Filter "ProcessId = ${wmicParsed.pid}" | Select-Object -ExpandProperty CommandLine) 2>$null
           $cmdline
         `, 4000)
-        return {
+        const conn: LcuConnectionInfo = {
           ...wmicParsed,
           region: extractFromCmdline(region, /--region=([\w\-_]+)/),
           rsoPlatformId: extractFromCmdline(region, /--rso_platform_id=([\w\-_]+)/),
         }
+        console.log(`[LCU:DIAG] findLolClient #${callSeq} 完成 (方案3): totalElapsed=${Date.now() - t0}ms`)
+        return conn
       }
     }
 
     // ═══ 方案4：PowerShell Get-CimInstance 命令行兜底（需管理员）═════
+    const ps4T0 = Date.now()
     const cmdline = runPsScript(`
       $p = Get-Process -Name 'LeagueClientUx' -ErrorAction SilentlyContinue | Select-Object -First 1
       if (-not $p) { exit 0 }
@@ -217,22 +297,28 @@ export async function findLolClient(): Promise<LcuConnectionInfo | null> {
       if (-not $cmdline) { $cmdline = (Get-WmiObject Win32_Process -Filter "ProcessId = $($p.Id)" | Select-Object -ExpandProperty CommandLine) 2>$null }
       $cmdline
     `, PS_EXEC_TIMEOUT)
+    console.log(`[LCU:DIAG] 方案4 PS cmdline: elapsed=${Date.now() - ps4T0}ms resultLen=${cmdline.length}`)
 
     if (cmdline) {
       const port = extractFromCmdline(cmdline, /--app-port=(\d+)/)
       const authToken = extractFromCmdline(cmdline, /--remoting-auth-token=([\w\-_]+)/)
       if (port && authToken) {
-        console.log(`[LCU:MAIN] 检测到 LCU (PS cmdline): port=${port}`)
-        return {
-          port: parseInt(port), authToken,
-          pid: parseInt(extractFromCmdline(cmdline, /--app-pid=(\d+)/) || '0'),
+        const pid = parseInt(extractFromCmdline(cmdline, /--app-pid=(\d+)/) || '0')
+        console.log(`[LCU:MAIN] 检测到 LCU (方案4): port=${port}, pid=${pid}, pidAlive=${isPidAlive(pid)}`)
+        const conn: LcuConnectionInfo = {
+          port: parseInt(port), authToken, pid,
           region: extractFromCmdline(cmdline, /--region=([\w\-_]+)/),
           rsoPlatformId: extractFromCmdline(cmdline, /--rso_platform_id=([\w\-_]+)/),
         }
+        console.log(`[LCU:DIAG] findLolClient #${callSeq} 完成 (方案4): totalElapsed=${Date.now() - t0}ms`)
+        return conn
       }
     }
 
     // 全部失败 — 诊断输出
+    console.log(`[LCU:DIAG] findLolClient #${callSeq} 全部方案失败: totalElapsed=${Date.now() - t0}ms` +
+      ` lockfiles=${lockfiles.length} ps2=${!!lockfileResult} wmic=${!!wmicRaw} ps4=${!!cmdline}`)
+
     const diagResult = runPsScript(`
       Get-Process -Name '*League*','*LOL*','*Riot*' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name -Unique
       Get-CimInstance Win32_Process | Where-Object { $_.Name -like '*League*' -or $_.Name -like '*LOL*' -or $_.Name -like '*Riot*' } | Select-Object -ExpandProperty Name | Sort-Object -Unique
@@ -250,11 +336,34 @@ export async function findLolClient(): Promise<LcuConnectionInfo | null> {
   }
 }
 
-/** 解析 lockfile 格式: name:pid:port:authToken:protocol */
+/** 解析 lockfile 格式: name:pid:port:authToken:protocol（带详细诊断） */
+function parseLockfileWithDiag(
+  path: string,
+  content: string
+): { port: number; authToken: string; pid: number } | null {
+  const parts = content.trim().split(':')
+  if (parts.length < 4) {
+    console.log(`[LCU:DIAG] lockfile 格式错误: ${path} fields=${parts.length} raw="${content.trim()}"`)
+    return null
+  }
+  if (parts[0] !== 'LeagueClient') {
+    console.log(`[LCU:DIAG] lockfile 非 LeagueClient: ${path} name=${parts[0]} (跳过，可能是 RiotClient)`)
+    return null
+  }
+  const port = parseInt(parts[2]) || 0
+  const authToken = parts[3]
+  const pid = parseInt(parts[1]) || 0
+  if (!port || !authToken) {
+    console.log(`[LCU:DIAG] lockfile 字段无效: ${path} port=${parts[2]} authToken=${parts[3] ? '有' : '无'}`)
+    return null
+  }
+  return { port, authToken, pid }
+}
+
+/** 解析 lockfile 格式: name:pid:port:authToken:protocol（备用于非 Node.js 路径） */
 function parseLockfile(content: string): { port: number; authToken: string; pid: number } | null {
   const parts = content.trim().split(':')
   if (parts.length < 4) return null
-  // 必须是 LeagueClient（非 RiotClient），否则 API 全部 404
   if (parts[0] !== 'LeagueClient') return null
   const port = parseInt(parts[2]) || 0
   const authToken = parts[3]
@@ -283,10 +392,13 @@ const RETRY_DELAY = 1000
 export class LcuHttpClient {
   private axios: AxiosInstance
   private baseUrl: string
+  /** 创建此客户端时使用的连接信息，供 ECONNREFUSED 时诊断 */
+  private _connSnapshot: { port: number; pid: number; authToken: string }
 
   constructor(conn: LcuConnectionInfo) {
     this.baseUrl = `https://127.0.0.1:${conn.port}`
     const auth = Buffer.from(`riot:${conn.authToken}`).toString('base64')
+    this._connSnapshot = { port: conn.port, pid: conn.pid, authToken: conn.authToken }
 
     this.axios = axios.create({
       baseURL: this.baseUrl,
@@ -309,12 +421,23 @@ export class LcuHttpClient {
         lastErr = err
         const code = err.code || ''
         const status = err.response?.status || 0
-        // 仅对连接拒绝和服务端临时错误重试
         const retryable = code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ETIMEDOUT' ||
           status === 502 || status === 503 || status === 504
         if (!retryable || attempt === MAX_RETRIES) {
           const detail = status === 404 ? ' (数据可能已过期或不存在)' : ''
-          console.error(`[LCU:MAIN] LCU API 请求失败 [${status || code}] ${endpoint}: ${err.message || err}${detail}`)
+
+          // ECONNREFUSED 专属诊断
+          if (code === 'ECONNREFUSED') {
+            const s = this._connSnapshot
+            const pidAlive = s.pid ? isPidAlive(s.pid) : 'unknown'
+            console.error(
+              `[LCU:MAIN] LCU API ECONNREFUSED: ${endpoint} | ` +
+              `port=${s.port} pid=${s.pid} pidAlive=${pidAlive} ` +
+              `token=${maskToken(s.authToken)} attempt=${attempt + 1}/${MAX_RETRIES + 1}`
+            )
+          } else {
+            console.error(`[LCU:MAIN] LCU API 请求失败 [${status || code}] ${endpoint}: ${err.message || err}${detail}`)
+          }
           throw err
         }
         console.warn(`[LCU:MAIN] 请求失败 [${status || code}] ${endpoint}, ${RETRY_DELAY * (attempt + 1)}ms 后重试 (${attempt + 1}/${MAX_RETRIES})`)
@@ -332,21 +455,18 @@ export class LcuHttpClient {
     )
   }
 
-  /** 通过召唤师数字 ID 查询任意玩家 */
   async getSummonerById(summonerId: number) {
     return this.get<import('@shared/types').LcuSummoner>(
       `/lol-summoner/v1/summoners/${summonerId}`
     )
   }
 
-  /** 通过旧式召唤师名查询（可能不支持 Riot ID #tag 格式） */
   async getSummonerByName(name: string) {
     return this.get<import('@shared/types').LcuSummoner>(
       `/lol-summoner/v1/summoners?name=${encodeURIComponent(name)}`
     )
   }
 
-  /** 通过 PUUID 查询召唤师（验证用） */
   async getSummonerByPuuid(puuid: string) {
     return this.get<import('@shared/types').LcuSummoner>(
       `/lol-summoner/v1/summoners/by-puuid/${puuid}`
@@ -359,7 +479,6 @@ export class LcuHttpClient {
     )
   }
 
-  /** 使用 beginIndex（完整拼写）参数名 —— 部分 LCU 版本（如 TENCENT）使用此格式 */
   async getMatchHistoryAlt(puuid: string, beg = 0, end = 19) {
     return this.get<any>(
       `/lol-match-history/v1/products/lol/${puuid}/matches?beginIndex=${beg}&endIndex=${end}`
