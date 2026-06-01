@@ -7,7 +7,6 @@ import fs from 'fs'
 import path from 'path'
 import axios, { AxiosInstance } from 'axios'
 import https from 'https'
-import net from 'net'
 import type { LcuConnectionInfo } from '@shared/types'
 import type {
   ChampionSimple,
@@ -87,15 +86,27 @@ function parseWmicOutput(raw: string): { port: number; authToken: string; pid: n
   return null
 }
 
-/** 用 TCP 快速探测端口是否在监听（2 秒超时） */
-function tcpCheck(port: number, timeoutMs = 2000): Promise<boolean> {
+/** 用真实 HTTPS 请求验证 LCU API 服务是否就绪（5 秒超时）
+ *  不能只用 TCP check — LCU 端口可能已绑定但 HTTPS 服务尚未初始化完成，
+ *  导致后续 API 调用全部 ECONNREFUSED */
+function lcuAliveCheck(port: number, authToken: string, timeoutMs = 5000): Promise<boolean> {
   return new Promise((resolve) => {
-    const sock = new net.Socket()
-    sock.setTimeout(timeoutMs)
-    sock.on('connect', () => { sock.destroy(); resolve(true) })
-    sock.on('error', () => { sock.destroy(); resolve(false) })
-    sock.on('timeout', () => { sock.destroy(); resolve(false) })
-    sock.connect(port, '127.0.0.1')
+    const auth = Buffer.from(`riot:${authToken}`).toString('base64')
+    const req = https.request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/riotclient/affinity',
+      method: 'GET',
+      headers: { Authorization: `Basic ${auth}` },
+      rejectUnauthorized: false,
+      timeout: timeoutMs,
+    }, (res) => {
+      res.resume()
+      resolve(true)
+    })
+    req.on('error', () => { req.destroy(); resolve(false) })
+    req.on('timeout', () => { req.destroy(); resolve(false) })
+    req.end()
   })
 }
 
@@ -145,7 +156,7 @@ export async function findLolClient(): Promise<LcuConnectionInfo | null> {
         const content = fs.readFileSync(lf, 'utf-8')
         const parsed = parseLockfile(content)
         if (!parsed) continue
-        const alive = await tcpCheck(parsed.port)
+        const alive = await lcuAliveCheck(parsed.port, parsed.authToken)
         if (!alive) continue
         console.log(`[LCU:MAIN] 检测到 LCU (Node.js lockfile): port=${parsed.port}, pid=${parsed.pid}, path=${lf}`)
         return { ...parsed, region: '', rsoPlatformId: '' }
