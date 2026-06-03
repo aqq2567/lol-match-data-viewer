@@ -16,7 +16,7 @@ import { logger } from './utils/logger'
 import { getSettings, setSetting } from './utils/settings'
 import { initAutoUpdater } from './utils/updater'
 import { registerLcuHandlers } from './ipc/lcu-handlers'
-import type { LcuConnectionInfo } from '@shared/types'
+import { getLastConnection } from './lcu/client'
 
 // ═══════════════════════════════════════════════════════════
 // 简易并发限制器（对标 LeagueAkari PQueue concurrency=8）
@@ -53,15 +53,15 @@ const _assetLimiter = new ConcurrencyLimiter(ASSET_PROXY_CONCURRENCY)
 logger.init()
 
 console.log = (...args: any[]) => {
-  const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
+  const msg = args.map(a => (a instanceof Error ? (a.message || String(a)) : typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
   logger.info('MAIN', msg)
 }
 console.warn = (...args: any[]) => {
-  const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
+  const msg = args.map(a => (a instanceof Error ? (a.message || String(a)) : typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
   logger.warn('MAIN', msg)
 }
 console.error = (...args: any[]) => {
-  const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
+  const msg = args.map(a => (a instanceof Error ? (a.message || String(a)) : typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
   logger.error('MAIN', msg)
 }
 
@@ -69,26 +69,26 @@ let mainWindow: BrowserWindow | null = null
 /** 标记是否正在执行 quitAndInstall，此时不应 app.exit(0) 以免中断更新安装重启 */
 let isQuitAndInstall = false
 
-/** 缓存的 LCU 认证信息，供 lcu-asset 协议代理使用 */
-let _lcuAuth: string | null = null
-let _lcuPort: number | null = null
+/** 缓存的 lcu-asset 协议代理 Axios 实例（惰性创建，端口变化时自动重建） */
 let _assetAxios: AxiosInstance | null = null
 let _assetAxiosPort: number | null = null
 
 /** 获取/缓存用于图片代理的 Axios 实例 */
 function getAssetAxios(): AxiosInstance | null {
-  if (!_lcuPort || !_lcuAuth) return null
-  if (_assetAxiosPort !== _lcuPort) {
+  const conn = getLastConnection()
+  if (!conn) return null
+  if (_assetAxiosPort !== conn.port) {
+    const auth = Buffer.from(`riot:${conn.authToken}`).toString('base64')
     _assetAxios = axios.create({
-      baseURL: `https://127.0.0.1:${_lcuPort}`,
-      headers: { Authorization: `Basic ${_lcuAuth}` },
+      baseURL: `https://127.0.0.1:${conn.port}`,
+      headers: { Authorization: `Basic ${auth}` },
       httpsAgent: new https.Agent({ rejectUnauthorized: false }),
       httpAgent: new http.Agent(),
       timeout: ASSET_PROXY_TIMEOUT,
       proxy: false,
     })
-    _assetAxiosPort = _lcuPort
-    console.log(`[LCU:MAIN] lcu-asset Axios 实例已创建: port=${_lcuPort}`)
+    _assetAxiosPort = conn.port
+    console.log(`[LCU:MAIN] lcu-asset Axios 实例已创建: port=${conn.port}`)
   }
   return _assetAxios
 }
@@ -213,7 +213,7 @@ ipcMain.handle('update:check', async () => {
     return
   }
   console.log('[UPDATER] 用户手动触发更新检查')
-  return autoUpdater.checkForUpdates()
+  return checkForUpdates()
 })
 
 // 设置相关 handler
@@ -240,17 +240,13 @@ ipcMain.handle('shell:open-external', async (_event, url: string) => {
   await shell.openExternal(url)
 })
 
-// LCU 相关 handler（通过回调同步认证信息给 lcu-asset 协议代理）
-registerLcuHandlers({
-  onConnectionFound(conn: LcuConnectionInfo) {
-    if (_lcuPort !== conn.port) {
-      _assetAxios = null
-      _assetAxiosPort = null
-    }
-    _lcuPort = conn.port
-    _lcuAuth = Buffer.from(`riot:${conn.authToken}`).toString('base64')
-  },
-})
+let checkForUpdates: () => Promise<void>
+
+// LCU 相关 handler
+registerLcuHandlers()
+
+// 初始化自动更新（拿到双通道检查函数）
+checkForUpdates = initAutoUpdater(() => mainWindow)
 
 // ═══════════════════════════════════════════════════════════
 // 应用生命周期
@@ -261,7 +257,6 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   registerLcuAssetProtocol()
   createWindow()
-  initAutoUpdater(() => mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -73,6 +73,19 @@ onMounted(async () => {
               () => '立即重启'
             ),
         })
+      } else if (status.status === 'mirror-available') {
+        notification.info({
+          title: `发现新版本 v${status.version || ''}`,
+          content: 'GitHub 直连不可用，请通过镜像下载安装包',
+          duration: 0,
+          closable: true,
+          action: () =>
+            h(
+              NButton,
+              { size: 'small', onClick: () => window.lcuApi.openExternal(status.url) },
+              () => '前往下载'
+            ),
+        })
       }
     })
   }

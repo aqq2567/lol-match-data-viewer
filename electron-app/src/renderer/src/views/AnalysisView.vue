@@ -373,7 +373,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onActivated, onMounted, ref } from 'vue'
+import { computed, h, onActivated, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NDataTable,
@@ -406,9 +406,8 @@ const themeStore = useThemeStore()
 
 const loading = ref(false)
 const result = ref<AnalysisResult | null>(null)
-
-/** 缓存：记录上次分析的 gameId 列表，重复进入时跳过加载 */
-let _lastAnalyzedIds: number[] = []
+/** 响应式对局数据，供所有 computed 属性依赖追踪 */
+const analysisGames = ref<GameRecord[]>([])
 
 /** 当前选中的指标 key */
 const selectedMetric = ref<string | null>(null)
@@ -512,7 +511,7 @@ interface MetricRankEntry {
 
 /** 当前选中指标的玩家排名（按总计降序） */
 const metricRanking = computed<MetricRankEntry[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || !selectedCategory.value) return []
 
   const getter = selectedCategory.value.getter
@@ -547,7 +546,7 @@ const metricRanking = computed<MetricRankEntry[]>(() => {
 
 /** 高阶指标排名（按总量比值聚合，而非单局均值简单平均） */
 const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || !selectedCategory.value || !isAdvancedMetric(selectedMetric.value)) return []
 
   const key = selectedMetric.value
@@ -678,7 +677,7 @@ const tableMaxHeight = computed(() => {
 
 /** 当前选中指标的领奖台 TOP 3 */
 const metricPodium = computed<PodiumEntry[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || !selectedCategory.value) return []
 
   const aggMap = buildPlayerAggMap(games)
@@ -728,7 +727,7 @@ function podiumWinRate(e: PodiumEntry): string {
 
 /** 全局装备频次 TOP 10 */
 const globalItemFreq = computed(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || games.length === 0) return []
 
   const countMap = new Map<number, number>()
@@ -765,7 +764,7 @@ interface PlayerFavItem {
 
 /** 每个玩家最爱装备（取该玩家出现次数最多的装备） */
 const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || games.length === 0) return []
 
   const playerItemMap = new Map<string, Map<number, number>>()
@@ -824,7 +823,7 @@ interface PlayerChampionPool {
 }
 
 const playerChampionPools = computed<PlayerChampionPool[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || games.length === 0) return []
 
   const playerChamps = new Map<string, Map<number, { count: number; wins: number }>>()
@@ -883,7 +882,7 @@ interface GlobalChampFreq {
 
 /** 全局英雄选取频次 TOP 10（所有对局所有玩家） */
 const globalChampionFreq = computed<GlobalChampFreq[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || games.length === 0) return []
 
   const countMap = new Map<number, number>()
@@ -908,7 +907,7 @@ const globalChampionFreq = computed<GlobalChampFreq[]>(() => {
 
 /** 查询某个英雄被哪些玩家使用过（用于热门榜悬浮弹窗） */
 function getChampionUsers(championId: number): { playerName: string; count: number }[] {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games) return []
   const playerCount = new Map<string, number>()
   for (const g of games) {
@@ -925,7 +924,7 @@ function getChampionUsers(championId: number): { playerName: string; count: numb
 
 /** 全局增幅频次（所有对局所有玩家，排除 0） */
 const globalAugmentFreq = computed(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || games.length === 0) return []
 
   const countMap = new Map<number, number>()
@@ -964,7 +963,7 @@ interface PlayerFavAug {
 
 /** 每个玩家最常选的增幅 */
 const playerFavoriteAugments = computed<PlayerFavAug[]>(() => {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games || games.length === 0) return []
 
   const playerAugMap = new Map<string, Map<number, number>>()
@@ -1023,7 +1022,7 @@ const sortedPlayerFavoriteAugments = computed(() =>
 
 /** 查询某个海克斯被哪些玩家选择过（用于热门榜悬浮弹窗） */
 function getAugmentUsers(augId: number): { playerName: string; count: number }[] {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games) return []
   const playerCount = new Map<string, number>()
   for (const g of games) {
@@ -1042,7 +1041,7 @@ function getAugmentUsers(augId: number): { playerName: string; count: number }[]
 
 /** 查询某件装备被哪些玩家购买过（用于热门榜悬浮弹窗） */
 function getItemUsers(itemId: number): { playerName: string; count: number }[] {
-  const games = (window as any).__analysisGames as GameRecord[] | undefined
+  const games = analysisGames.value
   if (!games) return []
   const playerCount = new Map<string, number>()
   for (const g of games) {
@@ -1061,23 +1060,19 @@ function getItemUsers(itemId: number): { playerName: string; count: number }[] {
 
 /** 加载分析数据 */
 async function loadAnalysis() {
+  // 仅"选择对局 + 点击分析按钮"触发计算；侧边栏导航只展示已有结果
+  const shouldRecalculate = sessionStorage.getItem('analysisShouldRecalculate') === 'true'
+  sessionStorage.removeItem('analysisShouldRecalculate')
+  if (!shouldRecalculate) return
+
   const rawIds = sessionStorage.getItem('analysisGameIds')
   if (!rawIds) return
 
   const gameIds: number[] = JSON.parse(rawIds)
   if (!gameIds.length) return
 
-  // 与上次分析的对局 ID 一致则直接复用缓存，跳过重新加载
-  if (
-    _lastAnalyzedIds.length === gameIds.length &&
-    _lastAnalyzedIds.every((id, i) => id === gameIds[i]) &&
-    result.value
-  ) {
-    console.log(`[LCU:ANALYSIS] 分析结果已缓存，跳过重新加载: ${gameIds.length} 场`)
-    return
-  }
-
   console.log(`[LCU:ANALYSIS] 开始分析: ${gameIds.length} 场对局, ids=${gameIds.join(',')}`)
+  selectedMetric.value = null
   loading.value = true
   try {
     const games = await window.lcuApi.fetchGameDetails(gameIds)
@@ -1156,8 +1151,7 @@ async function loadAnalysis() {
       players,
     }
 
-    _lastAnalyzedIds = gameIds
-    ;(window as any).__analysisGames = games
+    analysisGames.value = games
   } catch (e: any) {
     message.error(`分析失败: ${e.message || e}`)
   } finally {
@@ -1276,10 +1270,6 @@ const advancedRankingColumns = computed(() => {
   )
 
   return cols
-})
-
-onMounted(() => {
-  loadAnalysis()
 })
 
 onActivated(() => {

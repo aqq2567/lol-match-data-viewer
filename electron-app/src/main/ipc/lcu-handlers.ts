@@ -14,8 +14,7 @@ import {
 import type { LcuConnectionInfo, MatchData, MatchListData, GameRecord, GameDataCache, LcuSummoner } from '@shared/types'
 
 export interface LcuHandlersContext {
-  /** 当 check-connection 发现 LCU 时回调，用于缓存认证信息给 lcu-asset 协议代理 */
-  onConnectionFound?: (conn: LcuConnectionInfo) => void
+  /** 保留空接口便于后续扩展 */
 }
 
 export function registerLcuHandlers(ctx: LcuHandlersContext = {}) {
@@ -25,7 +24,6 @@ export function registerLcuHandlers(ctx: LcuHandlersContext = {}) {
     const conn = await findLolClient()
     if (conn) {
       console.log(`[LCU:MAIN] 找到 LCU: port=${conn.port}, region=${conn.region}`)
-      ctx.onConnectionFound?.(conn)
     } else {
       console.log('[LCU:MAIN] 未找到运行中的 LCU 客户端')
     }

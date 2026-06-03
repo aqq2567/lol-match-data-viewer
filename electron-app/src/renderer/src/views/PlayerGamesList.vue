@@ -381,6 +381,7 @@ function goToAnalysis() {
   }
 
   sessionStorage.setItem('analysisGameIds', JSON.stringify(checkedRowKeys.value))
+  sessionStorage.setItem('analysisShouldRecalculate', 'true')
   router.push({ name: 'analysis' })
 }
 

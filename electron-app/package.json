@@ -1,6 +1,6 @@
 {
   "name": "lol-match-data-viewer",
-  "version": "0.3.11",
+  "version": "0.3.14",
   "private": true,
   "description": "LCU 对战数据提取与分析桌面客户端",
   "main": "./out/main/index.js",
@@ -10,7 +10,9 @@
     "preview": "electron-vite preview",
     "package": "electron-vite build && electron-builder --win",
     "package:icon": "python -c \"from PIL import Image; img = Image.open('build/icon.png'); img.save('build/icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])\"",
-    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false"
+    "typecheck": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
@@ -31,6 +33,7 @@
     "rcedit": "^5.0.2",
     "typescript": "~5.7.3",
     "vite": "^6.3.5",
+    "vitest": "^4.1.8",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1",
     "vue-tsc": "^2.2.8"
