@@ -41,8 +41,13 @@ function loadLcuAddon(): typeof _lcuAddon {
   if (_lcuAddonLoadAttempted) return _lcuAddon
   _lcuAddonLoadAttempted = true
   try {
+    // asar 内 require 对 .node 原生模块无效，需计算真实文件系统路径
+    let addonPath = path.join(__dirname, '..', '..', 'addons', 'akari-tools-win64.node')
+    if (addonPath.includes('app.asar')) {
+      addonPath = addonPath.replace('app.asar', 'app.asar.unpacked')
+    }
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const raw = require('../../addons/akari-tools-win64.node')
+    const raw = require(addonPath)
     _lcuAddon = {
       getPidsByName: raw.getPidsByName.bind(raw),
       getCommandLine1: raw.getCommandLine1.bind(raw),
