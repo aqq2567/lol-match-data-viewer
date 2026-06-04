@@ -281,7 +281,21 @@ async function fetchMatchPage(
     page = await client.getMatchHistory(puuid, beg, end)
     games = page?.games?.games || []
   } catch (err: any) {
-    console.warn(`[LCU:MAIN] begIndex 请求失败 (${err.message || err}), 尝试 beginIndex 降级`)
+    const isServerError = /status code 5\d\d/.test(err.message || '')
+    if (isServerError) {
+      // LCU 内部服务未就绪，等待 3s 后重试，不用 beginIndex 降级
+      console.warn(`[LCU:MAIN] begIndex 请求失败 (${err.message || err}), 等待 3 秒后重试...`)
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      try {
+        page = await client.getMatchHistory(puuid, beg, end)
+        games = page?.games?.games || []
+        console.log(`[LCU:MAIN] begIndex 重试成功: ${games.length} 场`)
+      } catch (retryErr: any) {
+        console.warn(`[LCU:MAIN] begIndex 重试失败 (${retryErr.message || retryErr}), 尝试 beginIndex 降级`)
+      }
+    } else {
+      console.warn(`[LCU:MAIN] begIndex 请求失败 (${err.message || err}), 尝试 beginIndex 降级`)
+    }
   }
 
   if (games.length === 0) {
