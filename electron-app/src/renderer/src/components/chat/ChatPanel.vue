@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { NButton, NInput } from 'naive-ui'
-import type { GameRecord } from '@shared/types'
+import type { GameRecord, GameDataCache } from '@shared/types'
 import { formatGamesForAI } from '@shared/utils/format-for-ai'
 import { useGameDataStore } from '@/stores/game-data'
 
@@ -129,7 +129,7 @@ function scrollToBottom() {
 function buildSystemPrompt(): string {
   if (!props.games.length) return '无对局数据'
 
-  const data = formatGamesForAI(props.games, gds.$state as any)
+  const data = formatGamesForAI(props.games, gds.$state as GameDataCache)
 
   return [
     '你是一个英雄联盟对局数据分析师。请严格遵守以下规则：',

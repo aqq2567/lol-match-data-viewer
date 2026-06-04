@@ -4,11 +4,9 @@
     <div class="divider" />
     <div class="shard-area">
       <Transition name="fade">
-        <KeepAlive>
           <span v-if="$route.name === 'match-list'" class="context-title">对局列表</span>
           <span v-else-if="$route.name === 'game-detail'" class="context-title">对局详情</span>
           <span v-else-if="$route.name === 'analysis'" class="context-title">数据分析</span>
-        </KeepAlive>
       </Transition>
     </div>
     <div class="center-status">
