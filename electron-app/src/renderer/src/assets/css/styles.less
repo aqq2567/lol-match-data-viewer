@@ -16,6 +16,20 @@
   --title-bar-height: 36px;
   --scroll-bar-height: 6px;
   --scroll-bar-width: 8px;
+
+  /* 字体系统 */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'SF Mono', monospace;
+  --font-number: 'Inter', 'SF Pro Display', -apple-system, sans-serif;
+
+  /* 字体大小层级 */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
 }
 
 /* ═══ 暗色主题（默认） ═══ */
@@ -63,6 +77,33 @@
   --card-win-text: #5ca9f1;
   --card-lose-text: #e96025;
   --card-remake-text: #d1d1d1;
+
+  /* ── OP.GG 风格升级 Token ── */
+  /* 毛玻璃分层 */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --card-elevated: rgba(255, 255, 255, 0.07);
+
+  /* 氛围光 */
+  --glow-gold: 0 0 16px rgba(232, 168, 64, 0.15);
+  --glow-red: 0 0 16px rgba(232, 64, 87, 0.12);
+  --glow-blue: 0 0 16px rgba(60, 140, 208, 0.12);
+
+  /* 强调色 */
+  --accent-gold: #e8a840;
+  --accent-red: #e84057;
+  --accent-green: #2ea86c;
+  --accent-blue: #3c8cd0;
+
+  /* 圆角统一 */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* 阴影层级 */
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --card-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --card-shadow-glow: 0 0 20px rgba(232, 168, 64, 0.1);
 }
 
 /* ═══ 亮色主题 ═══ */
@@ -110,6 +151,28 @@
   --card-win-text: #3b6fd4;
   --card-lose-text: #d45520;
   --card-remake-text: #666666;
+
+  /* ── OP.GG 风格升级 Token ── */
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --card-elevated: rgba(255, 255, 255, 0.85);
+
+  --glow-gold: 0 0 16px rgba(200, 140, 40, 0.18);
+  --glow-red: 0 0 16px rgba(200, 60, 60, 0.15);
+  --glow-blue: 0 0 16px rgba(50, 120, 200, 0.15);
+
+  --accent-gold: #b8860b;
+  --accent-red: #d4380d;
+  --accent-green: #1a7d4c;
+  --accent-blue: #2b6cb0;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --card-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --card-shadow-glow: 0 0 20px rgba(184, 134, 11, 0.12);
 }
 
 ::-webkit-scrollbar {
@@ -136,10 +199,11 @@ body {
   overflow: hidden;
   user-select: none;
   line-height: normal;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
-    sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* Naive UI 微调 */

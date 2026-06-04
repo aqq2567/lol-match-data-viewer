@@ -27,3 +27,61 @@
 .bi-fade-leave-from {
   opacity: 1;
 }
+
+/* ── OP.GG 风格微交互 ── */
+
+/* 弹性曲线变量 */
+@ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+/* 卡片 hover 上浮 */
+.card-hover-lift {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--glass-border);
+}
+
+/* 领奖台入场 —— 弹性弹入 */
+@keyframes podium-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.podium-spot-enter {
+  animation: podium-enter 0.4s @ease-spring both;
+}
+
+/* 序号延迟 */
+.podium-spot-enter:nth-child(2) { animation-delay: 0.08s; }  /* 第1名先出 */
+.podium-spot-enter:nth-child(1) { animation-delay: 0.16s; }  /* 第2名 */
+.podium-spot-enter:nth-child(3) { animation-delay: 0.24s; }  /* 第3名 */
+
+/* 淡入上浮（通用） */
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-slide-up {
+  animation: fade-slide-up 0.3s ease both;
+}
+
+/* 表格行 hover 过渡 */
+.table-row-transition {
+  transition: background-color 0.15s ease, transform 0.15s ease-out;
+}

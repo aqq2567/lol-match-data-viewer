@@ -22,22 +22,25 @@
     <template v-else>
       <!-- 概览栏 -->
       <div class="analysis-header">
-        <n-button text @click="$router.push({ name: 'match-list' })" class="back-btn">
-          <template #icon><n-icon><arrow-back-outline /></n-icon></template>
-          返回列表
-        </n-button>
+        <div class="header-left">
+          <n-button text @click="$router.push({ name: 'match-list' })" class="back-btn">
+            <template #icon><n-icon><arrow-back-outline /></n-icon></template>
+            返回列表
+          </n-button>
+          <div class="header-mode-name">{{ modeDisplayName }}</div>
+        </div>
         <div class="header-stats">
-          <div class="stat-badge">
-            <span class="stat-num">{{ result.gameCount }}</span>
-            <span class="stat-label">分析局数</span>
+          <div class="stat-card">
+            <span class="stat-card-num">{{ result.gameCount }}</span>
+            <span class="stat-card-label">分析局数</span>
           </div>
-          <div class="stat-badge win">
-            <span class="stat-num">{{ result.winCount }}W</span>
-            <span class="stat-label">{{ result.loseCount }}L</span>
+          <div class="stat-card">
+            <span class="stat-card-num win-loss">{{ result.winCount }}<span class="win-letter">W</span> <span class="lose-letter">{{ result.loseCount }}L</span></span>
+            <span class="stat-card-label">胜负</span>
           </div>
-          <div class="stat-badge" :class="{ good: result.winRate >= 50 }">
-            <span class="stat-num">{{ result.winRate.toFixed(1) }}%</span>
-            <span class="stat-label">胜率</span>
+          <div class="stat-card" :class="{ 'wr-good': result.winRate >= 50, 'wr-bad': result.winRate < 50 }">
+            <span class="stat-card-num">{{ result.winRate.toFixed(1) }}<span class="wr-pct">%</span></span>
+            <span class="stat-card-label">胜率</span>
           </div>
         </div>
       </div>
@@ -268,16 +271,37 @@
               <!-- 玩家排名表 -->
               <div class="ranking-section">
                 <h4>{{ selectedCategory?.label }} — 玩家排名</h4>
-                <n-data-table
-                  :key="'adv-' + themeStore.isDark"
-                  :columns="advancedRankingColumns"
-                  :data="advancedMetricRanking"
-                  :row-key="(row: MetricRankEntry) => row.playerName"
-                  size="medium"
-                  striped
-                  :max-height="tableMaxHeight"
-                  virtual-scroll
-                />
+                <div class="custom-rank-table">
+                  <div class="rt-header">
+                    <span class="rt-col-rank">#</span>
+                    <span class="rt-col-player">玩家</span>
+                    <span class="rt-col-val">比值</span>
+                    <span v-for="r in advRawLabels" :key="r" class="rt-col-val">{{ r }}</span>
+                    <span class="rt-col-games">场次</span>
+                    <span class="rt-col-wr">胜率</span>
+                  </div>
+                  <div class="rt-body" :style="{ maxHeight: tableMaxHeight + 'px' }">
+                    <div
+                      v-for="(row, idx) in advancedMetricRanking"
+                      :key="row.playerName"
+                      class="rt-row table-row-transition"
+                      :class="{ 'rt-row-top': idx === 0, 'rt-row-bottom': idx === advancedMetricRanking.length - 1 }"
+                    >
+                      <span class="rt-col-rank" :class="rankClass(idx)">{{ idx + 1 }}</span>
+                      <span class="rt-col-player">
+                        <LcuImage :src="profileIconUrl(row.profileIconId)" :size="28" class="rt-avatar" />
+                        <span class="rt-name">{{ shortName(row.playerName) }}</span>
+                      </span>
+                      <span class="rt-col-val rt-num">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
+                      <span v-for="r in (row.raw || [])" :key="r.label" class="rt-col-val rt-num-secondary">{{ fmtNum(r.value) }}</span>
+                      <span class="rt-col-games rt-num-secondary">{{ row.gameCount }}</span>
+                      <span class="rt-col-wr">
+                        <span class="wr-text">{{ row.winRate.toFixed(0) }}%</span>
+                        <span class="wr-bar"><span class="wr-fill" :style="{ width: row.winRate + '%' }"></span></span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </template>
 
@@ -291,8 +315,10 @@
                   <!-- 第 2 名 -->
                   <n-popover v-if="metricPodium[1]" trigger="hover" placement="top" :show-arrow="false">
                     <template #trigger>
-                      <div class="podium-spot spot-2">
-                        <LcuImage :src="profileIconUrl(metricPodium[1].profileIconId)" :size="52" class="spot-avatar" />
+                      <div class="podium-spot spot-2 podium-spot-enter">
+                        <div class="spot-avatar-ring silver">
+                          <LcuImage :src="profileIconUrl(metricPodium[1].profileIconId)" :size="52" class="spot-avatar" />
+                        </div>
                         <div class="spot-name">{{ shortName(metricPodium[1].playerName) }}</div>
                         <div class="spot-value">{{ metricPodium[1].displayValue }}</div>
                         <div class="spot-stand stand-silver"><span class="spot-rank">2</span></div>
@@ -308,7 +334,7 @@
                   <!-- 第 1 名 -->
                   <n-popover v-if="metricPodium[0]" trigger="hover" placement="top" :show-arrow="false">
                     <template #trigger>
-                      <div class="podium-spot spot-1">
+                      <div class="podium-spot spot-1 podium-spot-enter">
                         <div class="first-crown-wrapper">
                           <div class="crown-glow"></div>
                           <n-icon size="28" color="#e8a840" class="crown-icon">
@@ -316,7 +342,9 @@
                           </n-icon>
                           <div v-if="firstPlaceTitle" class="first-title-badge">{{ firstPlaceTitle }}</div>
                         </div>
-                        <LcuImage :src="profileIconUrl(metricPodium[0].profileIconId)" :size="68" class="spot-avatar spot-avatar-crowned" />
+                        <div class="spot-avatar-ring gold">
+                          <LcuImage :src="profileIconUrl(metricPodium[0].profileIconId)" :size="68" class="spot-avatar" />
+                        </div>
                         <div class="spot-name">{{ shortName(metricPodium[0].playerName) }}</div>
                         <div class="spot-value spot-value-lg">{{ metricPodium[0].displayValue }}</div>
                         <div class="spot-stand stand-gold"><span class="spot-rank">1</span></div>
@@ -332,8 +360,10 @@
                   <!-- 第 3 名 -->
                   <n-popover v-if="metricPodium[2]" trigger="hover" placement="top" :show-arrow="false">
                     <template #trigger>
-                      <div class="podium-spot spot-3">
-                        <LcuImage :src="profileIconUrl(metricPodium[2].profileIconId)" :size="52" class="spot-avatar" />
+                      <div class="podium-spot spot-3 podium-spot-enter">
+                        <div class="spot-avatar-ring bronze">
+                          <LcuImage :src="profileIconUrl(metricPodium[2].profileIconId)" :size="52" class="spot-avatar" />
+                        </div>
                         <div class="spot-name">{{ shortName(metricPodium[2].playerName) }}</div>
                         <div class="spot-value">{{ metricPodium[2].displayValue }}</div>
                         <div class="spot-stand stand-bronze"><span class="spot-rank">3</span></div>
@@ -353,16 +383,37 @@
             <!-- 玩家排名表 -->
             <div class="ranking-section">
               <h4>{{ selectedCategory?.label }} — 玩家排名</h4>
-              <n-data-table
-                :key="'basic-' + themeStore.isDark"
-                :columns="rankingColumns"
-                :data="metricRanking"
-                :row-key="(row: MetricRankEntry) => row.playerName"
-                size="medium"
-                striped
-                :max-height="tableMaxHeight"
-                virtual-scroll
-              />
+              <div class="custom-rank-table">
+                <div class="rt-header">
+                  <span class="rt-col-rank">#</span>
+                  <span class="rt-col-player">玩家</span>
+                  <span class="rt-col-val">总计</span>
+                  <span class="rt-col-val">场均</span>
+                  <span class="rt-col-games">场次</span>
+                  <span class="rt-col-wr">胜率</span>
+                </div>
+                <div class="rt-body" :style="{ maxHeight: tableMaxHeight + 'px' }">
+                  <div
+                    v-for="(row, idx) in metricRanking"
+                    :key="row.playerName"
+                    class="rt-row table-row-transition"
+                    :class="{ 'rt-row-top': idx === 0, 'rt-row-medal': idx < 3 }"
+                  >
+                    <span class="rt-col-rank" :class="rankClass(idx)">{{ idx + 1 }}</span>
+                    <span class="rt-col-player">
+                      <LcuImage :src="profileIconUrl(row.profileIconId)" :size="28" class="rt-avatar" />
+                      <span class="rt-name">{{ shortName(row.playerName) }}</span>
+                    </span>
+                    <span class="rt-col-val rt-num">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
+                    <span class="rt-col-val rt-num-secondary">{{ selectedCategory?.fmt(row.average) || '—' }}</span>
+                    <span class="rt-col-games rt-num-secondary">{{ row.gameCount }}</span>
+                    <span class="rt-col-wr">
+                      <span class="wr-text">{{ row.winRate.toFixed(0) }}%</span>
+                      <span class="wr-bar"><span class="wr-fill" :style="{ width: row.winRate + '%' }"></span></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
             </template>
           </template>
@@ -373,10 +424,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onActivated, ref } from 'vue'
+import { computed, onActivated, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  NDataTable,
   NButton,
   NIcon,
   NPopover,
@@ -397,12 +447,10 @@ import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
 import { isBuildItem, getRoleName } from '@shared/utils/mappings'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
-import { useThemeStore } from '@/stores/theme'
 
 const router = useRouter()
 const message = useMessage()
 const gds = useGameDataStore()
-const themeStore = useThemeStore()
 
 const loading = ref(false)
 const result = ref<AnalysisResult | null>(null)
@@ -413,6 +461,11 @@ const analysisGames = ref<GameRecord[]>([])
 const selectedMetric = ref<string | null>(null)
 /** 当前分析的游戏模式（从加载的对局中检测） */
 const currentMode = ref<string>('')
+
+const modeDisplayName = computed(() => {
+  if (!currentMode.value) return ''
+  return getModeAnalysisConfig(currentMode.value).displayName || currentMode.value
+})
 /** 基础数据目录是否折叠 */
 const basicDataCollapsed = ref(false)
 /** 高阶数据目录是否折叠 */
@@ -1213,106 +1266,19 @@ function shortName(name: string): string {
   return name.length > 12 ? name.slice(0, 11) + '…' : name
 }
 
-/** 排名表列定义 */
-const rankingColumns = computed(() => {
-  void themeStore.isDark // 依赖主题，确保切换时重新计算
-  const mutedColor = 'var(--text-tertiary)'
-  return [
-    {
-      title: '#',
-      key: 'rank',
-      width: 48,
-      render: (_row: MetricRankEntry, idx: number) =>
-        h('span', { style: idx < 3 ? 'font-weight:700;color:#e8a840;font-size:14px' : `color:${mutedColor};font-size:14px` }, String(idx + 1)),
-    },
-    {
-      title: '玩家',
-      key: 'playerName',
-      width: 150,
-      render: (row: MetricRankEntry) =>
-        h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.playerName)),
-    },
-    {
-      title: '总计',
-      key: 'total',
-      width: 100,
-      render: (row: MetricRankEntry) =>
-        h('span', { style: 'font-weight:700;font-family:monospace;font-size:14px' }, selectedCategory.value?.fmt(row.total) || String(row.total)),
-    },
-    {
-      title: '场均',
-      key: 'average',
-      width: 100,
-      render: (row: MetricRankEntry) =>
-        h('span', { style: 'font-family:monospace;font-size:14px' }, selectedCategory.value?.fmt(row.average) || row.average.toFixed(1)),
-    },
-    { title: '场次', key: 'gameCount', width: 60 },
-    {
-      title: '胜率',
-      key: 'winRate',
-      width: 70,
-      render: (row: MetricRankEntry) => h('span', { style: 'font-size:14px' }, `${row.winRate.toFixed(0)}%`),
-    },
-  ]
-})
+function rankClass(idx: number): string {
+  if (idx === 0) return 'rank-gold'
+  if (idx === 1) return 'rank-silver'
+  if (idx === 2) return 'rank-bronze'
+  return ''
+}
 
-/** 高阶数据排名表列（比值 + 原始数据列） */
-const advancedRankingColumns = computed(() => {
-  void themeStore.isDark
-  const mutedColor = 'var(--text-tertiary)'
-  const secondaryColor = 'var(--text-secondary)'
-  const cols: any[] = [
-    {
-      title: '#',
-      key: 'rank',
-      width: 48,
-      render: (_row: MetricRankEntry, idx: number) =>
-        h('span', { style: idx === 0 ? 'font-weight:700;color:#e8a840;font-size:14px' : idx === advancedMetricRanking.value.length - 1 ? 'font-weight:700;color:#e84057;font-size:14px' : `color:${mutedColor};font-size:14px` }, String(idx + 1)),
-    },
-    {
-      title: '玩家',
-      key: 'playerName',
-      width: 140,
-      render: (row: MetricRankEntry) =>
-        h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.playerName)),
-    },
-    {
-      title: '比值',
-      key: 'total',
-      width: 90,
-      render: (row: MetricRankEntry) =>
-        h('span', { style: 'font-weight:700;font-family:monospace;font-size:14px' }, selectedCategory.value?.fmt(row.total) || row.total.toFixed(2)),
-    },
-  ]
-
-  // 动态追加原始数据列
+/** 高阶排名表的动态原始数据列标签 */
+const advRawLabels = computed(() => {
   const first = advancedMetricRanking.value[0]
-  if (first?.raw) {
-    for (const r of first.raw) {
-      cols.push({
-        title: r.label,
-        key: `raw-${r.label}`,
-        width: 90,
-        render: (row: MetricRankEntry) => {
-          const rawItem = row.raw?.find(x => x.label === r.label)
-          return h('span', { style: `font-family:monospace;font-size:13px;color:${secondaryColor}` }, rawItem ? fmtNum(rawItem.value) : '-')
-        },
-      })
-    }
-  }
-
-  cols.push(
-    { title: '场次', key: 'gameCount', width: 55 },
-    {
-      title: '胜率',
-      key: 'winRate',
-      width: 65,
-      render: (row: MetricRankEntry) => h('span', { style: 'font-size:14px' }, `${row.winRate.toFixed(0)}%`),
-    },
-  )
-
-  return cols
+  return first?.raw ? first.raw.map(r => r.label) : []
 })
+
 
 onActivated(() => {
   loadAnalysis()
@@ -1346,36 +1312,104 @@ onActivated(() => {
 .analysis-header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 12px 20px;
-  background: var(--header-bg);
-  border-bottom: 1px solid var(--border-color);
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
   flex-shrink: 0;
+  backdrop-filter: blur(8px);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-mode-name {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
 }
 
 .header-stats {
   display: flex;
-  gap: 20px;
+  gap: 12px;
 }
 
-.stat-badge {
+.stat-card {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  min-width: 90px;
 }
 
-.stat-badge .stat-num {
-  font-size: 20px;
-  font-weight: 700;
+.stat-card-num {
+  font-size: var(--text-xl);
+  font-weight: 800;
   color: var(--text-primary);
+  font-family: var(--font-number);
+  letter-spacing: -0.02em;
 }
 
-.stat-badge.win .stat-num { color: #239b23; }
-.stat-badge.good .stat-num { color: #239b23; }
+.stat-card-num .wr-pct {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-left: 1px;
+  color: var(--text-secondary);
+}
 
-.stat-badge .stat-label {
-  font-size: 11px;
+.stat-card-label {
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.stat-card .win-loss {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat-card .win-letter {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--win-color);
+}
+
+.stat-card .lose-letter {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--lose-color);
+}
+
+.stat-card.wr-good {
+  border-color: rgba(46, 168, 108, 0.25);
+  box-shadow: 0 0 12px rgba(46, 168, 108, 0.08);
+}
+
+.stat-card.wr-good .stat-card-num {
+  color: var(--accent-green);
+}
+
+.stat-card.wr-bad {
+  border-color: rgba(232, 64, 87, 0.25);
+  box-shadow: 0 0 12px rgba(232, 64, 87, 0.08);
+}
+
+.stat-card.wr-bad .stat-card-num {
+  color: var(--accent-red);
+}
+
+.back-btn {
+  font-size: var(--text-sm);
 }
 
 /* ── 主体双栏布局 ── */
@@ -1387,31 +1421,33 @@ onActivated(() => {
 
 /* ── 左侧指标列表 ── */
 .metric-sidebar {
-  width: 160px;
+  width: 200px;
   flex-shrink: 0;
   background: var(--header-bg);
   border-right: 1px solid var(--border-color);
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
 .sidebar-title {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-tertiary);
-  padding: 10px 16px 8px;
+  padding: 8px 16px 10px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
 }
 
 .metric-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 16px;
+  padding: 10px 16px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s ease, border-color 0.15s ease;
   border-left: 2px solid transparent;
+  margin: 0 8px;
+  border-radius: var(--radius-sm);
 }
 
 .metric-item:hover {
@@ -1419,8 +1455,9 @@ onActivated(() => {
 }
 
 .metric-item.active {
-  background: var(--bg-section);
+  background: var(--glass-bg);
   border-left-color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--glass-border);
 }
 
 .metric-dot {
@@ -1430,15 +1467,15 @@ onActivated(() => {
   flex-shrink: 0;
 }
 
-.metric-dot.cat-red    { background: #e84057; }
-.metric-dot.cat-orange { background: #f0a040; }
-.metric-dot.cat-green  { background: #2ea86c; }
-.metric-dot.cat-gold   { background: #c8aa2e; }
-.metric-dot.cat-blue   { background: #3c8cd0; }
-.metric-dot.cat-purple { background: #8b5cf6; }
+.metric-dot.cat-red    { background: #e84057; box-shadow: 0 0 6px rgba(232, 64, 87, 0.4); }
+.metric-dot.cat-orange { background: #f0a040; box-shadow: 0 0 6px rgba(240, 160, 64, 0.4); }
+.metric-dot.cat-green  { background: #2ea86c; box-shadow: 0 0 6px rgba(46, 168, 108, 0.4); }
+.metric-dot.cat-gold   { background: #c8aa2e; box-shadow: 0 0 6px rgba(200, 170, 46, 0.4); }
+.metric-dot.cat-blue   { background: #3c8cd0; box-shadow: 0 0 6px rgba(60, 140, 208, 0.4); }
+.metric-dot.cat-purple { background: #8b5cf6; box-shadow: 0 0 6px rgba(139, 92, 246, 0.4); }
 
 .metric-label {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
 }
 
@@ -1449,16 +1486,16 @@ onActivated(() => {
 
 /* ── 可折叠目录 ── */
 .category-group {
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 4px;
-  margin-bottom: 4px;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
 }
 
 .category-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px 10px 10px;
+  padding: 10px 14px 10px 12px;
   cursor: pointer;
   user-select: none;
   transition: background 0.15s;
@@ -1470,7 +1507,7 @@ onActivated(() => {
 
 .category-arrow {
   color: var(--text-tertiary);
-  transition: transform 0.2s;
+  transition: transform 0.2s ease;
   flex-shrink: 0;
 }
 
@@ -1479,24 +1516,27 @@ onActivated(() => {
 }
 
 .category-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   flex: 1;
 }
 
 .category-count {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
-  background: var(--bg-section);
-  padding: 1px 6px;
-  border-radius: 8px;
+  background: var(--glass-bg);
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-family: var(--font-number);
 }
 
 .category-items .metric-item {
-  padding-left: 28px;
+  padding-left: 30px;
+  margin-right: 4px;
 }
 
 /* ── 空目录占位 ── */
@@ -1544,18 +1584,27 @@ onActivated(() => {
 /* ── 领奖台 ── */
 .podium-section h4,
 .ranking-section h4 {
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+
+.podium-section {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--card-shadow);
 }
 
 .podium-row {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 32px;
-  padding: 12px 0;
+  gap: 36px;
+  padding: 8px 0;
 }
 
 .podium-spot {
@@ -1566,6 +1615,25 @@ onActivated(() => {
   width: 170px;
 }
 
+/* 头像光环 */
+.spot-avatar-ring {
+  border-radius: 50%;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.spot-avatar-ring.gold {
+  box-shadow: 0 0 0 3px rgba(232, 168, 64, 0.5), 0 0 24px rgba(232, 168, 64, 0.3);
+}
+
+.spot-avatar-ring.silver {
+  box-shadow: 0 0 0 3px rgba(160, 168, 176, 0.5), 0 0 16px rgba(160, 168, 176, 0.2);
+}
+
+.spot-avatar-ring.bronze {
+  box-shadow: 0 0 0 3px rgba(176, 136, 96, 0.5), 0 0 16px rgba(176, 136, 96, 0.2);
+}
+
 .spot-avatar {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.05);
@@ -1573,7 +1641,7 @@ onActivated(() => {
 }
 
 .spot-name {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1583,15 +1651,16 @@ onActivated(() => {
 }
 
 .spot-value {
-  font-size: 22px;
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: var(--text-primary);
-  font-family: monospace;
+  font-family: var(--font-number);
+  letter-spacing: -0.02em;
   text-align: center;
 }
 
 .spot-value-lg {
-  font-size: 26px;
+  font-size: var(--text-3xl);
 }
 
 .spot-stand {
@@ -1600,20 +1669,33 @@ onActivated(() => {
   align-items: center;
   justify-content: center;
   border-radius: 3px 3px 0 0;
+  position: relative;
 }
 
 .spot-1 .spot-stand { height: 56px; }
 .spot-2 .spot-stand { height: 44px; }
 .spot-3 .spot-stand { height: 34px; }
 
-.stand-gold   { background: linear-gradient(180deg, #e8a840 0%, #c88a20 100%); }
-.stand-silver { background: linear-gradient(180deg, #a0a8b0 0%, #707880 100%); }
-.stand-bronze { background: linear-gradient(180deg, #b08860 0%, #805838 100%); }
+.stand-gold {
+  background: linear-gradient(180deg, #e8a840 0%, #c88a20 50%, #a06810 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.stand-silver {
+  background: linear-gradient(180deg, #b0b8c0 0%, #889098 50%, #606870 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.stand-bronze {
+  background: linear-gradient(180deg, #c09870 0%, #987050 50%, #705030 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+}
 
 .spot-rank {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.1);
 }
 
 /* ── 第 1 名皇冠 + 称号 ── */
@@ -1628,34 +1710,29 @@ onActivated(() => {
 
 .crown-glow {
   position: absolute;
-  top: -12px;
-  width: 80px;
-  height: 40px;
-  background: radial-gradient(ellipse at center, rgba(232, 168, 64, 0.25) 0%, transparent 70%);
+  top: -16px;
+  width: 100px;
+  height: 50px;
+  background: radial-gradient(ellipse at center, rgba(232, 168, 64, 0.35) 0%, transparent 70%);
   border-radius: 50%;
   pointer-events: none;
 }
 
 .crown-icon {
-  filter: drop-shadow(0 2px 4px rgba(232, 168, 64, 0.5));
+  filter: drop-shadow(0 2px 6px rgba(232, 168, 64, 0.6));
 }
 
 .first-title-badge {
   font-size: 13px;
   font-weight: 800;
   color: #1a1a2e;
-  background: linear-gradient(135deg, #e8a840 0%, #f0cc60 100%);
-  padding: 2px 12px;
-  border-radius: 10px;
+  background: linear-gradient(135deg, #e8a840 0%, #f0cc60 50%, #e8a840 100%);
+  padding: 3px 14px;
+  border-radius: 12px;
   letter-spacing: 1px;
-  margin-top: -4px;
+  margin-top: -2px;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(232, 168, 64, 0.3);
-}
-
-.spot-avatar-crowned {
-  border: 3px solid rgba(232, 168, 64, 0.6);
-  box-shadow: 0 0 16px rgba(232, 168, 64, 0.3);
+  box-shadow: 0 2px 12px rgba(232, 168, 64, 0.4);
 }
 
 /* ── 排名表 (~2/3) ── */
@@ -1664,6 +1741,141 @@ onActivated(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* ── 自定义排名表 ── */
+.custom-rank-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  overflow: hidden;
+}
+
+.rt-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg-section);
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.rt-body {
+  overflow-y: auto;
+}
+
+.rt-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.rt-row:last-child {
+  border-bottom: none;
+}
+
+.rt-row:hover {
+  background: var(--bg-hover);
+}
+
+.rt-row.rt-row-top {
+  border-left: 3px solid var(--accent-gold);
+}
+
+.rt-row.rt-row-bottom {
+  border-left: 3px solid var(--accent-red);
+}
+
+/* 列宽 */
+.rt-col-rank { width: 36px; flex-shrink: 0; text-align: center; }
+.rt-col-player { flex: 1; min-width: 120px; display: flex; align-items: center; gap: 8px; }
+.rt-col-val { width: 80px; flex-shrink: 0; text-align: right; }
+.rt-col-games { width: 48px; flex-shrink: 0; text-align: right; }
+.rt-col-wr { width: 110px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 8px; }
+
+/* 排名数字 */
+.rt-col-rank {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-family: var(--font-number);
+}
+
+.rt-col-rank.rank-gold { color: var(--accent-gold); font-weight: 800; font-size: var(--text-base); }
+.rt-col-rank.rank-silver { color: #a0a8b0; font-weight: 700; }
+.rt-col-rank.rank-bronze { color: #b08860; font-weight: 700; }
+
+/* 玩家列 */
+.rt-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+}
+
+.rt-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 数值 */
+.rt-num {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-number);
+  font-feature-settings: 'tnum' 1;
+}
+
+.rt-num-secondary {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-number);
+  font-feature-settings: 'tnum' 1;
+}
+
+/* 胜率列 */
+.wr-text {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+  font-family: var(--font-number);
+  font-feature-settings: 'tnum' 1;
+}
+
+.wr-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-section);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.wr-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-green), #5cd890);
+  transition: width 0.3s ease;
+}
+
+.rt-row.rt-row-bottom .wr-fill {
+  background: linear-gradient(90deg, var(--accent-red), #f06070);
 }
 
 /* ── 悬浮弹窗 ── */
@@ -1689,10 +1901,11 @@ onActivated(() => {
 }
 
 .items-section h4 {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 10px;
+  letter-spacing: 0.02em;
 }
 
 .global-items-grid {
@@ -1705,10 +1918,18 @@ onActivated(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-hover);
-  border-radius: 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   padding: 8px 12px;
   min-width: 160px;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.global-item-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--card-shadow);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .global-item-card .item-info {
@@ -1743,9 +1964,16 @@ onActivated(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  background: var(--bg-card);
-  border-radius: 4px;
+  padding: 8px 12px;
+  background: var(--glass-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.player-item-row:hover {
+  background: var(--card-elevated);
+  border-color: var(--glass-border);
 }
 
 .player-item-row .fav-avatar {
@@ -1781,9 +2009,35 @@ onActivated(() => {
   display: flex;
   align-items: center;
   gap: 0;
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 24px 24px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.advanced-best-worst::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  background: radial-gradient(ellipse at center bottom, var(--glow-gold), transparent 60%);
+  pointer-events: none;
+}
+
+.advanced-best-worst::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 50%;
+  background: radial-gradient(ellipse at center bottom, var(--glow-red), transparent 60%);
+  pointer-events: none;
 }
 
 .abw-card {
@@ -1793,31 +2047,37 @@ onActivated(() => {
   align-items: center;
   gap: 8px;
   text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
 .abw-divider {
   width: 1px;
-  height: 100px;
-  background: var(--bg-section);
+  height: 110px;
+  background: var(--glass-border);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .abw-tag {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   padding: 3px 14px;
   border-radius: 10px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
 }
 
 .abw-tag.best {
-  color: #e8a840;
+  color: var(--accent-gold);
   background: rgba(232, 168, 64, 0.12);
+  border: 1px solid rgba(232, 168, 64, 0.2);
 }
 
 .abw-tag.worst {
-  color: #e84057;
+  color: var(--accent-red);
   background: rgba(232, 64, 87, 0.12);
+  border: 1px solid rgba(232, 64, 87, 0.2);
 }
 
 .abw-avatar {
@@ -1826,20 +2086,21 @@ onActivated(() => {
 }
 
 .abw-name {
-  font-size: 15px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .abw-value {
-  font-size: 28px;
+  font-size: var(--text-2xl);
   font-weight: 800;
-  font-family: monospace;
+  font-family: var(--font-number);
   color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .abw-meta {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 
@@ -1942,16 +2203,18 @@ onActivated(() => {
   flex-direction: column;
   align-items: center;
   min-width: 52px;
-  background: var(--bg-hover);
-  border-radius: 8px;
+  background: var(--glass-bg);
+  border: 1px solid rgba(60, 140, 208, 0.15);
+  border-radius: var(--radius-md);
   padding: 6px 10px;
+  box-shadow: 0 0 12px rgba(60, 140, 208, 0.06);
 }
 
 .pool-badge-num {
   font-size: 22px;
   font-weight: 800;
-  color: #3c8cd0;
-  font-family: monospace;
+  color: var(--accent-blue);
+  font-family: var(--font-number);
   line-height: 1;
 }
 
@@ -1960,6 +2223,6 @@ onActivated(() => {
   color: var(--text-tertiary);
   margin-top: 2px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
 }
 </style>
