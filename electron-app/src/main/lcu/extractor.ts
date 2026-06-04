@@ -568,6 +568,7 @@ function buildGameSummary(g: any, selfPuuid: string): GameSummary {
   return {
     gameId: g.gameId,
     gameMode: g.gameMode || '',
+    gameType: g.gameType || '',
     queueId: g.queueId,
     mapId: g.mapId,
     gameCreation: g.gameCreationDate ? new Date(g.gameCreationDate).getTime() : (g.gameCreation || 0),

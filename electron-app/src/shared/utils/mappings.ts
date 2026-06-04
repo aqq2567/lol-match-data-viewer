@@ -286,6 +286,23 @@ export function getTierName(tier: string): string {
   return TIER_MAP[tier] || tier
 }
 
+// ═══════════════════════════════════════════════════════════
+// 英雄角色标签 → 中文名称
+// ═══════════════════════════════════════════════════════════
+
+export const ROLE_TAG_MAP: Record<string, string> = {
+  Fighter: '战士',
+  Tank: '坦克',
+  Mage: '法师',
+  Assassin: '刺客',
+  Marksman: '射手',
+  Support: '辅助',
+}
+
+export function getRoleName(tag: string): string {
+  return ROLE_TAG_MAP[tag] || tag
+}
+
 /** 获取玩家显示名称：优先 gameName / summonerName，最后回退到 PUUID 前 8 位 */
 export function getPlayerDisplayName(p: {
   gameName?: string

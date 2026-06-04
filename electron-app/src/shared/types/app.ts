@@ -236,6 +236,7 @@ export interface ParticipantBrief {
 export interface GameSummary {
   gameId: number
   gameMode: string
+  gameType: string
   queueId: number
   mapId: number
   gameCreation: number

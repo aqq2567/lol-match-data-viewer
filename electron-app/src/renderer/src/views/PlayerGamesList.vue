@@ -192,11 +192,12 @@ const pageSizeOptions = [10, 20, 30, 50].map(n => ({ label: `${n} 条/页`, valu
 const modeFilter = ref('__all__')
 
 /** 将 game 映射为统一的模式显示名（与 MatchHistoryCard 的 formattedModeText 保持一致） */
-function gameModeLabel(g: { gameMode: string; queueId: number }): string {
+function gameModeLabel(g: { gameMode: string; queueId: number; gameType?: string }): string {
   if (g.gameMode === 'PRACTICETOOL') return '训练模式'
   const modeName = getGameModeName(g.gameMode)
-  if (modeName !== g.gameMode) return modeName
-  return getQueueName(g.queueId, gds.queues)
+  let base = modeName !== g.gameMode ? modeName : getQueueName(g.queueId, gds.queues)
+  if (g.gameType === 'CUSTOM_GAME') base += '（自定义）'
+  return base
 }
 
 /** 从已加载对局中提取不同模式列表，按出现频次降序 */

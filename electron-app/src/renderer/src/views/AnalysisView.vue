@@ -394,7 +394,7 @@ import type { GameRecord, PlayerStats, AnalysisResult, PlayerAnalysis } from '@s
 import LcuImage from '@/components/widgets/LcuImage.vue'
 import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
 import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
-import { isBuildItem } from '@shared/utils/mappings'
+import { isBuildItem, getRoleName } from '@shared/utils/mappings'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
 import { useThemeStore } from '@/stores/theme'
@@ -550,6 +550,48 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   if (!games || !selectedCategory.value || !isAdvancedMetric(selectedMetric.value)) return []
 
   const key = selectedMetric.value
+  if (!key) return []
+
+  // 角色率指标：统计每个玩家选了某类英雄的局数占比
+  const ROLE_RATE_KEYS = new Set(['fighterRate', 'tankRate', 'mageRate', 'assassinRate', 'marksmanRate', 'supportRate'])
+  const ROLE_TAG_REVERSE: Record<string, string> = {
+    fighterRate: 'Fighter', tankRate: 'Tank', mageRate: 'Mage',
+    assassinRate: 'Assassin', marksmanRate: 'Marksman', supportRate: 'Support',
+  }
+
+  if (ROLE_RATE_KEYS.has(key)) {
+    const targetTag = ROLE_TAG_REVERSE[key] // e.g. "Fighter"
+    const playerRoleData = new Map<string, { profileIconId: number; roleCount: number; gameCount: number; winCount: number }>()
+    for (const g of games) {
+      for (const p of [...g.blue_team.players, ...g.red_team.players]) {
+        const name = p.summoner_name
+        if (!playerRoleData.has(name)) {
+          playerRoleData.set(name, { profileIconId: p.profile_icon_id, roleCount: 0, gameCount: 0, winCount: 0 })
+        }
+        const d = playerRoleData.get(name)!
+        d.gameCount++
+        if (p.stats.win) d.winCount++
+        const champ = gds.champions[p.champion_id]
+        const champRoles: string[] = (champ as any)?.roles || (champ as any)?.tags || []
+        if (champRoles.some(r => r.toLowerCase() === targetTag.toLowerCase())) d.roleCount++      }
+    }
+    return Array.from(playerRoleData.entries())
+      .map(([name, d]) => ({
+        playerName: name,
+        profileIconId: d.profileIconId,
+        total: d.gameCount > 0 ? d.roleCount / d.gameCount : 0,
+        average: d.gameCount > 0 ? d.roleCount / d.gameCount : 0,
+        gameCount: d.gameCount,
+        winCount: d.winCount,
+        winRate: d.gameCount > 0 ? (d.winCount / d.gameCount) * 100 : 0,
+        raw: [
+          { label: getRoleName(targetTag) + '局数', value: d.roleCount },
+          { label: '总局数', value: d.gameCount },
+        ],
+      }))
+      .sort((a, b) => b.total - a.total)
+  }
+
   const playerData = new Map<string, { totalDmg: number; totalGold: number; totalKills: number; totalDeaths: number; totalTeamDmg: number; totalDmgTaken: number; totalTeamDmgTaken: number; profileIconId: number; gameCount: number; winCount: number }>()
 
   for (const g of games) {

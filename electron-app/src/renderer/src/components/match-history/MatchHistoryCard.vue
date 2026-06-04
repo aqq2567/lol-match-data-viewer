@@ -195,11 +195,10 @@ useTimeoutPoll(
 /** 模式名 —— 优先使用中文映射表，其次 LCU queues 数据 */
 const formattedModeText = computed(() => {
   if (game.gameMode === 'PRACTICETOOL') return '训练模式'
-  // 先尝试通过 gameMode 映射
   const modeName = getGameModeName(game.gameMode)
-  if (modeName !== game.gameMode) return modeName
-  // 如果 gameMode 不在映射表中，尝试通过 queueId 查找
-  return getQueueName(game.queueId, gds.queues)
+  let base = modeName !== game.gameMode ? modeName : getQueueName(game.queueId, gds.queues)
+  if (game.gameType === 'CUSTOM_GAME') base += '（自定义）'
+  return base
 })
 
 /** 结果文字 */

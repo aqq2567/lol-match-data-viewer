@@ -81,6 +81,12 @@ const ALL_ADVANCED_METRICS: MetricDef[] = [
   { key: 'dmgPerDeath', label: '伤害/死亡', colorClass: 'cat-purple', getter: (s) => s.damage.total_to_champs / Math.max(s.deaths, 1), fmt: (v) => fmtNum(v) },
   { key: 'dmgShare', label: '伤害占比', colorClass: 'cat-red', getter: () => 0, fmt: (v) => (v * 100).toFixed(1) + '%' },
   { key: 'dmgTakenShare', label: '承伤占比', colorClass: 'cat-blue', getter: () => 0, fmt: (v) => (v * 100).toFixed(1) + '%' },
+  { key: 'fighterRate', label: '战士率', colorClass: 'cat-red', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
+  { key: 'tankRate', label: '坦克率', colorClass: 'cat-orange', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
+  { key: 'mageRate', label: '法师率', colorClass: 'cat-purple', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
+  { key: 'assassinRate', label: '刺客率', colorClass: 'cat-blue', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
+  { key: 'marksmanRate', label: '射手率', colorClass: 'cat-green', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
+  { key: 'supportRate', label: '辅助率', colorClass: 'cat-gold', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
 ]
 
 const DEFAULT_PODIUM_TITLES: Record<string, string> = {
@@ -101,8 +107,14 @@ const DEFAULT_ADVANCED_BEST: Record<string, string> = {
   dmgPerGold: '吃草挤奶',
   dmgPerKill: 'K头有用',
   dmgPerDeath: '自爆卡车',
-  dmgShare: '全靠队友',
+  dmgShare: '绝对核心',
   dmgTakenShare: '抗在前面',
+  fighterRate: '战斗狂人',
+  tankRate: '坚如磐石',
+  mageRate: '魔法使',
+  assassinRate: '暗杀星',
+  marksmanRate: '神枪手',
+  supportRate: '团队支柱',
 }
 
 const DEFAULT_ADVANCED_WORST: Record<string, string> = {
@@ -111,6 +123,12 @@ const DEFAULT_ADVANCED_WORST: Record<string, string> = {
   dmgTakenShare: '躲在后面',
   dmgPerKill: 'Kobe',
   dmgPerDeath: '其实我是辅助',
+  fighterRate: '和平主义者',
+  tankRate: '玻璃大炮',
+  mageRate: '武力至上',
+  assassinRate: '光明正大',
+  marksmanRate: '近视眼',
+  supportRate: '独行侠',
 }
 
 /** 默认 config（未匹配到的模式回退到此） */
