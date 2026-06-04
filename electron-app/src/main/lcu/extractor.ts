@@ -435,8 +435,19 @@ function buildMatchListData(
   const rawGames = allSummaries.map(g => {
     const detail = detailMap.get(g.gameId)
     if (detail) {
+      // 诊断：摘要 vs 详情的 gameType 差异
+      const sType = g.gameType || '(空)'
+      const dType = detail.gameType || '(空)'
+      if (sType !== dType && (dType === 'CUSTOM_GAME' || sType === 'CUSTOM_GAME')) {
+        console.log(
+          `[LCU:MAIN] DIAG gameType 差异 #${g.gameId}: ` +
+          `摘要=[${sType}] 详情=[${dType}] gameMode=[${detail.gameMode || g.gameMode}]`
+        )
+      }
       return {
         ...g,
+        gameType: detail.gameType || g.gameType || '',
+        gameMode: detail.gameMode || g.gameMode || '',
         participants: detail.participants,
         participantIdentities: detail.participantIdentities,
         teams: detail.teams,
@@ -659,7 +670,52 @@ export async function fetchMatchListForPlayer(
     profileIconId,
   }
 
-  return buildMatchListData(summaries, detailMap, targetPuuid, summonerInfo, extractRankedData(ranked), totalGames)
+  const result = buildMatchListData(summaries, detailMap, targetPuuid, summonerInfo, extractRankedData(ranked), totalGames)
+
+  // LCU 摘要 API 对非当前玩家不返回 CUSTOM_GAME 对局。
+  // 从共享详情缓存中查找目标玩家参与但未出现在摘要中的对局，补入结果。
+  if (summaries.filter((g: any) => g.gameType === 'CUSTOM_GAME').length === 0) {
+    const existingIds = new Set(result.games.map(g => g.gameId))
+    let injected = 0
+    for (const [gameId, detail] of gameDetailCache) {
+      if (existingIds.has(gameId)) continue
+      if (detail.gameType !== 'CUSTOM_GAME') continue
+      const identities: Record<number, any> = {}
+      for (const pi of detail.participantIdentities || []) {
+        identities[pi.participantId] = pi.player || {}
+      }
+      const isParticipant = (detail.participants || []).some((p: any) => {
+        const player = identities[p.participantId]
+        return player?.puuid === targetPuuid
+      })
+      if (isParticipant) {
+        result.games.push(buildGameSummary(detail, targetPuuid))
+        injected++
+      }
+    }
+    if (injected > 0) {
+      result.games.sort((a, b) => b.gameCreation - a.gameCreation)
+      // 统一封顶 200 场，保证所有玩家返回数一致
+      const MAX_GAMES = 200
+      if (result.games.length > MAX_GAMES) {
+        const trimmed = result.games.length - MAX_GAMES
+        result.games = result.games.slice(0, MAX_GAMES)
+        result.totalGames = MAX_GAMES
+        console.log(
+          `[LCU:MAIN] fetchMatchListForPlayer ${summonerName}: ` +
+          `从缓存注入 ${injected} 场 CUSTOM_GAME, 截断 ${trimmed} 场, 最终 ${MAX_GAMES} 场`
+        )
+      } else {
+        result.totalGames = result.games.length
+        console.log(
+          `[LCU:MAIN] fetchMatchListForPlayer ${summonerName}: ` +
+          `从缓存注入 ${injected} 场 CUSTOM_GAME, 最终 ${result.games.length} 场`
+        )
+      }
+    }
+  }
+
+  return result
 }
 
 // ═══════════════════════════════════════════════════════════

@@ -145,7 +145,7 @@ import type { GameSummary, ParticipantBrief } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
 import { useTabStore } from '@/stores/tab'
 import { formatGameDuration } from '@/utils/format'
-import { getGameModeName, getQueueName, getPlayerDisplayName } from '@shared/utils/mappings'
+import { formatGameModeLabel, getPlayerDisplayName } from '@shared/utils/mappings'
 import LcuImage from '@/components/widgets/LcuImage.vue'
 import ChampionIcon from '@/components/widgets/ChampionIcon.vue'
 import SummonerSpellDisplay from '@/components/widgets/SummonerSpellDisplay.vue'
@@ -192,14 +192,7 @@ useTimeoutPoll(
   { immediate: true, immediateCallback: true }
 )
 
-/** 模式名 —— 优先使用中文映射表，其次 LCU queues 数据 */
-const formattedModeText = computed(() => {
-  if (game.gameMode === 'PRACTICETOOL') return '训练模式'
-  const modeName = getGameModeName(game.gameMode)
-  let base = modeName !== game.gameMode ? modeName : getQueueName(game.queueId, gds.queues)
-  if (game.gameType === 'CUSTOM_GAME') base += '（自定义）'
-  return base
-})
+const formattedModeText = computed(() => formatGameModeLabel(game, gds.queues))
 
 /** 结果文字 */
 const formattedResultText = computed(() => {

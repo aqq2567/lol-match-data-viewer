@@ -3,7 +3,7 @@
  * 不依赖 DOM / Electron / Vue，仅接收数据输入返回计算结果
  * 主进程和渲染进程均可使用
  */
-import type { GameSummary, GameRecord, TeamStats, ParticipantBrief } from '@shared/types/app'
+import type { GameSummary, TeamStats, ParticipantBrief } from '@shared/types/app'
 
 // ═══════════════════════════════════════════════════════════
 // 综合统计

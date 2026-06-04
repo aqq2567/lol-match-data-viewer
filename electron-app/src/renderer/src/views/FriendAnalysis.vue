@@ -49,11 +49,11 @@
           </div>
           <div class="stat-badge" v-if="summary.mostPlayed">
             <span class="stat-num">{{ summary.mostPlayed.count }}</span>
-            <span class="stat-label">与 {{ shortName(summary.mostPlayed.name) }} 最多</span>
+            <span class="stat-label">与 {{ shortName(summary.mostPlayed.name, 10) }} 最多</span>
           </div>
           <div class="stat-badge" v-if="summary.bestWinRate">
             <span class="stat-num win">{{ (summary.bestWinRate.rate * 100).toFixed(0) }}%</span>
-            <span class="stat-label">{{ shortName(summary.bestWinRate.name) }} 胜率</span>
+            <span class="stat-label">{{ shortName(summary.bestWinRate.name, 10) }} 胜率</span>
           </div>
         </div>
         <n-button size="small" @click="loadData()" :loading="loading">
@@ -118,7 +118,7 @@
                     <template #trigger>
                       <div class="podium-spot spot-2">
                         <LcuImage :src="profileIconUrl(friendPodium[1].profileIconId)" :size="52" class="spot-avatar" />
-                        <div class="spot-name">{{ shortName(friendPodium[1].name) }}</div>
+                        <div class="spot-name">{{ shortName(friendPodium[1].name, 10) }}</div>
                         <div class="spot-value">{{ friendPodium[1].displayValue }}</div>
                         <div class="spot-stand stand-silver"><span class="spot-rank">2</span></div>
                       </div>
@@ -148,7 +148,7 @@
                           <div v-if="firstPlaceTitle" class="first-title-badge">{{ firstPlaceTitle }}</div>
                         </div>
                         <LcuImage :src="profileIconUrl(friendPodium[0].profileIconId)" :size="68" class="spot-avatar spot-avatar-crowned" />
-                        <div class="spot-name">{{ shortName(friendPodium[0].name) }}</div>
+                        <div class="spot-name">{{ shortName(friendPodium[0].name, 10) }}</div>
                         <div class="spot-value spot-value-lg">{{ friendPodium[0].displayValue }}</div>
                         <div class="spot-stand stand-gold"><span class="spot-rank">1</span></div>
                       </div>
@@ -171,7 +171,7 @@
                     <template #trigger>
                       <div class="podium-spot spot-3">
                         <LcuImage :src="profileIconUrl(friendPodium[2].profileIconId)" :size="52" class="spot-avatar" />
-                        <div class="spot-name">{{ shortName(friendPodium[2].name) }}</div>
+                        <div class="spot-name">{{ shortName(friendPodium[2].name, 10) }}</div>
                         <div class="spot-value">{{ friendPodium[2].displayValue }}</div>
                         <div class="spot-stand stand-bronze"><span class="spot-rank">3</span></div>
                       </div>
@@ -235,6 +235,7 @@ import {
   type FriendSummary,
 } from '@shared/utils/friend-analysis'
 import LcuImage from '@/components/widgets/LcuImage.vue'
+import { shortName } from '@/utils/display'
 import { useThemeStore } from '@/stores/theme'
 
 const themeStore = useThemeStore()
@@ -404,7 +405,7 @@ const friendColumns = computed(() => {
       key: 'name',
       width: 140,
       render: (row: FriendStats) =>
-        h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.name)),
+        h('span', { style: 'font-weight:600;font-size:14px' }, shortName(row.name, 10)),
     },
   ]
 
@@ -519,11 +520,6 @@ function daysAgo(ts: number): string {
   if (days < 7) return `${days}天前`
   if (days < 30) return `${Math.floor(days / 7)}周前`
   return `${Math.floor(days / 30)}月前`
-}
-
-function shortName(name: string): string {
-  if (!name) return '?'
-  return name.length > 10 ? name.slice(0, 9) + '…' : name
 }
 
 function rateDisplay(rate: number): string {

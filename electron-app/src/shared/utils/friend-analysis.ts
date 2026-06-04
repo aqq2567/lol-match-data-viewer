@@ -3,6 +3,7 @@
  * 接受任意 puuid 作为分析主体，不硬编码"当前用户"
  */
 import type { GameSummary, ParticipantBrief } from '@shared/types/app'
+import { getPlayerDisplayName } from './mappings'
 
 /** 收集者 item ID */
 const COLLECTOR_ID = 6676
@@ -101,12 +102,7 @@ export function analyzeFriends(games: GameSummary[], targetPuuid: string): Frien
   return result
 }
 
-function friendDisplayName(p: ParticipantBrief): string {
-  if (p.gameName) {
-    return p.tagLine ? `${p.gameName}#${p.tagLine}` : p.gameName
-  }
-  return p.summonerName || '?'
-}
+const friendDisplayName = getPlayerDisplayName
 
 export interface FriendSummary {
   totalFriends: number

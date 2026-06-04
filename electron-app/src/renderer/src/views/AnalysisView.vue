@@ -450,6 +450,8 @@ import ChatPanel from '@/components/chat/ChatPanel.vue'
 import { isBuildItem, getRoleName } from '@shared/utils/mappings'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
+import { shortName } from '@/utils/display'
+import { formatCompactNumber as fmtNum } from '@shared/utils/mappings'
 
 const router = useRouter()
 const message = useMessage()
@@ -1307,18 +1309,6 @@ async function loadAnalysis() {
   } finally {
     loading.value = false
   }
-}
-
-/** 格式化数字 */
-function fmtNum(n: number): string {
-  if (n >= 10000) return (n / 1000).toFixed(0) + 'k'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
-  return n.toFixed(0)
-}
-
-/** 短名称 */
-function shortName(name: string): string {
-  return name.length > 12 ? name.slice(0, 11) + '…' : name
 }
 
 function rankClass(idx: number): string {

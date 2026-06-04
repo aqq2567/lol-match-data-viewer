@@ -159,7 +159,7 @@ import {
   CloudDownloadOutline, RefreshOutline, AnalyticsOutline, PersonOutline,
 } from '@vicons/ionicons5'
 import type { MatchListData } from '@shared/types'
-import { getGameModeName, getQueueName } from '@shared/utils/mappings'
+import { formatGameModeLabel } from '@shared/utils/mappings'
 import { useTabStore } from '@/stores/tab'
 import { useGameDataStore } from '@/stores/game-data'
 import MatchHistoryCard from '@/components/match-history/MatchHistoryCard.vue'
@@ -191,21 +191,12 @@ const pageSizeOptions = [10, 20, 30, 50].map(n => ({ label: `${n} 条/页`, valu
 /** 模式筛选 */
 const modeFilter = ref('__all__')
 
-/** 将 game 映射为统一的模式显示名（与 MatchHistoryCard 的 formattedModeText 保持一致） */
-function gameModeLabel(g: { gameMode: string; queueId: number; gameType?: string }): string {
-  if (g.gameMode === 'PRACTICETOOL') return '训练模式'
-  const modeName = getGameModeName(g.gameMode)
-  let base = modeName !== g.gameMode ? modeName : getQueueName(g.queueId, gds.queues)
-  if (g.gameType === 'CUSTOM_GAME') base += '（自定义）'
-  return base
-}
-
 /** 从已加载对局中提取不同模式列表，按出现频次降序 */
 const modeOptions = computed(() => {
   if (!listData.value) return [{ label: '全部', value: '__all__' }]
   const countMap = new Map<string, number>()
   for (const g of listData.value.games) {
-    const label = gameModeLabel(g)
+    const label = formatGameModeLabel(g, gds.queues)
     countMap.set(label, (countMap.get(label) || 0) + 1)
   }
   const options = Array.from(countMap.entries())
@@ -218,7 +209,7 @@ const modeOptions = computed(() => {
 const filteredGames = computed(() => {
   if (!listData.value) return []
   if (modeFilter.value === '__all__') return listData.value.games
-  return listData.value.games.filter(g => gameModeLabel(g) === modeFilter.value)
+  return listData.value.games.filter(g => formatGameModeLabel(g, gds.queues) === modeFilter.value)
 })
 
 /** 筛选后的总数 */
@@ -371,7 +362,7 @@ function goToAnalysis() {
     const modes = new Set(selectedGames.map(g => g.gameMode))
     if (modes.size > 1) {
       const modeNames = Array.from(modes)
-        .map(m => gameModeLabel({ gameMode: m, queueId: 0 }))
+        .map(m => formatGameModeLabel({ gameMode: m, queueId: 0 }, gds.queues))
       dialog.warning({
         title: '模式不一致',
         content: `选中的 ${selectedGames.length} 场对局包含不同模式（${modeNames.join('、')}）。分析不同模式的对局会导致统计数据失真，请仅选择同一模式的对局。`,

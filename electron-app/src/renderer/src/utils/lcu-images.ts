@@ -33,6 +33,3 @@ export function perkIcon(id: number): string {
 export function perkStyleIcon(id: number): string {
   return id ? assetUrl(`lol-game-data/assets/v1/perkstyles/${id}.png`) : ''
 }
-
-// 保留 initLcuImages 空函数，兼容 MatchList 的调用（端口缓存已移到主进程）
-export function initLcuImages(_port: number) {}

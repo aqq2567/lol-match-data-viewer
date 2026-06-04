@@ -20,7 +20,7 @@ export function extractFromCmdline(cmdline: string, pattern: RegExp): string {
  * 解析 lockfile 内容，格式: name:pid:port:authToken:protocol
  * 返回 port / authToken / pid，解析失败返回 null
  */
-export function parseLockfile(content: string): { port: number; authToken: string; pid: number } | null {
+function parseLockfile(content: string): { port: number; authToken: string; pid: number } | null {
   const parts = content.trim().split(':')
   if (parts.length < 4) return null
   if (parts[0] !== 'LeagueClient') return null
@@ -59,7 +59,7 @@ export function parseLockfileWithDiag(
 }
 
 /** 解析 WMIC /format:csv 输出，提取 port、authToken、pid */
-export function parseWmicOutput(raw: string): { port: number; authToken: string; pid: number } | null {
+function parseWmicOutput(raw: string): { port: number; authToken: string; pid: number } | null {
   const lines = raw.split('\n')
   for (const line of lines) {
     if (!line.includes('LeagueClientUx')) continue
@@ -77,7 +77,7 @@ export function parseWmicOutput(raw: string): { port: number; authToken: string;
 }
 
 /** 将 PowerShell 脚本编码为 Base64（UTF-16LE），通过 -EncodedCommand 安全传入 */
-export function encodePsCommand(script: string): string {
+function encodePsCommand(script: string): string {
   return Buffer.from(script, 'utf16le').toString('base64')
 }
 

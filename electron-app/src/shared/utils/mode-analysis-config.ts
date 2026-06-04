@@ -6,6 +6,7 @@
  * 调整某模式的指标列表：直接修改对应条目中的数组
  */
 import type { PlayerStats } from '@shared/types/app'
+import { formatCompactNumber } from './mappings'
 
 // ═══════════════════════════════════════════════════════════
 // 类型定义
@@ -214,8 +215,4 @@ export function getModeAnalysisConfig(gameMode: string): ModeAnalysisConfig {
 /** 列出所有已注册的模式代码 */
 export const KNOWN_MODES = Object.keys(MODE_CONFIGS)
 
-function fmtNum(n: number): string {
-  if (n >= 10000) return (n / 1000).toFixed(0) + 'k'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
-  return n.toFixed(0)
-}
+const fmtNum = formatCompactNumber

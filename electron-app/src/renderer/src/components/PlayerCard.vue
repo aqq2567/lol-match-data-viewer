@@ -100,6 +100,8 @@ import { computed } from 'vue'
 import type { PlayerData } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
 import { useTabStore } from '@/stores/tab'
+import { shortName } from '@/utils/display'
+import { formatCompactNumber as fmtNum } from '@shared/utils/mappings'
 import ChampionIcon from '@/components/widgets/ChampionIcon.vue'
 import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
 import SummonerSpellDisplay from '@/components/widgets/SummonerSpellDisplay.vue'
@@ -113,22 +115,10 @@ const props = defineProps<{
   allPlayers: PlayerData[]
 }>()
 
-function shortName(name: string): string {
-  if (!name) return '?'
-  return name.length > 12 ? name.slice(0, 11) + '…' : name
-}
-
 function openPlayerTab() {
   const p = props.player
   if (!p.puuid) return
   tabStore.openTab(p.puuid, p.summoner_name, p.profile_icon_id, 0)
-}
-
-function fmtNum(n: number | undefined | null): string {
-  if (n == null || n === 0) return '0'
-  if (n >= 10000) return (n / 1000).toFixed(0) + 'k'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
-  return String(n)
 }
 
 const validItems = computed(() =>

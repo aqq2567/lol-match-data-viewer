@@ -303,14 +303,37 @@ export function getRoleName(tag: string): string {
   return ROLE_TAG_MAP[tag] || tag
 }
 
-/** 获取玩家显示名称：优先 gameName / summonerName，最后回退到 PUUID 前 8 位 */
+/** 获取玩家显示名称（规范版本，合并了 summonerDisplayName / friendDisplayName 的行为） */
 export function getPlayerDisplayName(p: {
   gameName?: string
+  tagLine?: string
+  displayName?: string
   summonerName?: string
   puuid?: string
 }): string {
-  if (p.gameName) return p.gameName
+  if (p.gameName) return p.tagLine ? `${p.gameName}#${p.tagLine}` : p.gameName
+  if (p.displayName) return p.displayName
   if (p.summonerName) return p.summonerName
   if (p.puuid) return p.puuid.slice(0, 8) + '…'
   return '?'
+}
+
+/** 对局模式显示标签，供 MatchHistoryCard 和 PlayerGamesList 共用 */
+export function formatGameModeLabel(
+  g: { gameMode: string; queueId: number; gameType?: string },
+  queues?: Record<number, { name?: string }>,
+): string {
+  if (g.gameMode === 'PRACTICETOOL') return '训练模式'
+  const modeName = getGameModeName(g.gameMode)
+  let base = modeName !== g.gameMode ? modeName : getQueueName(g.queueId, queues)
+  if (g.gameType === 'CUSTOM_GAME') base += '（自定义）'
+  return base
+}
+
+/** 紧凑数字格式化：10000 → 10k, 1000 → 1.0k, null → '0' */
+export function formatCompactNumber(n: number | null | undefined): string {
+  if (n == null || n === 0) return '0'
+  if (n >= 10000) return (n / 1000).toFixed(0) + 'k'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return String(Math.round(n))
 }

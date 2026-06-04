@@ -47,11 +47,9 @@ export interface LcuSummoner {
   xpUntilNextLevel: number
 }
 
-/** 从 LCU 召唤师数据提取显示名（优先 Riot ID，回退 displayName） */
+/** @deprecated 请使用 `getPlayerDisplayName` from @shared/utils/mappings */
 export function summonerDisplayName(s: { displayName?: string; gameName?: string; tagLine?: string }): string {
-  if (s.gameName) {
-    return s.tagLine ? `${s.gameName}#${s.tagLine}` : s.gameName
-  }
+  if (s.gameName) return s.tagLine ? `${s.gameName}#${s.tagLine}` : s.gameName
   return s.displayName || ''
 }
 
