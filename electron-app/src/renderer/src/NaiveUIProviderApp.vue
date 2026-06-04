@@ -64,24 +64,51 @@ const darkOverrides: GlobalThemeOverrides = {
   }
 }
 
+// Pantone 11-4201 Cloud Dancer 云上舞白
+// Naive UI lightTheme 默认大量组件为纯白 #fff，用 common token 全局覆盖
+const CLOUD_DANCER = '#F0EEE9'          // 卡片/弹出层底色
+const CLOUD_DANCER_INPUT = '#E9E7E1'     // 输入框底色（略深，形成层次）
+const CLOUD_DANCER_HOVER = '#EBE9E3'     // hover 态
+
 /** Naive UI 亮色主题微调 */
 const lightOverrides: GlobalThemeOverrides = {
+  common: {
+    bodyColor: CLOUD_DANCER,
+    cardColor: CLOUD_DANCER,
+    popoverColor: CLOUD_DANCER,
+    modalColor: CLOUD_DANCER,
+    inputColor: CLOUD_DANCER_INPUT,
+    tableColor: CLOUD_DANCER,
+    actionColor: CLOUD_DANCER,
+    hoverColor: CLOUD_DANCER_HOVER,
+    pressedColor: '#E3E1D9',
+    tagColor: CLOUD_DANCER_INPUT,
+    tabColor: CLOUD_DANCER,
+    buttonColor2: CLOUD_DANCER,
+    dividerColor: 'rgba(0, 0, 0, 0.08)',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
   Notification: {
     padding: '12px',
-    color: '#ffffffff'
+    color: CLOUD_DANCER + 'ff'
   },
   Popover: {
-    color: '#ffffffff',
+    color: CLOUD_DANCER + 'ff',
     fontSize: '12px'
   },
   Card: {
-    colorModal: '#ffffff'
+    colorModal: CLOUD_DANCER,
+    color: CLOUD_DANCER,
   },
   Message: {
-    colorInfo: 'rgba(255, 255, 255, 1)',
-    colorSuccess: 'rgba(255, 255, 255, 1)',
-    colorWarning: 'rgba(255, 255, 255, 1)',
-    colorError: 'rgba(255, 255, 255, 1)'
+    colorInfo: CLOUD_DANCER,
+    colorSuccess: CLOUD_DANCER,
+    colorWarning: CLOUD_DANCER,
+    colorError: CLOUD_DANCER
+  },
+  DataTable: {
+    tdColor: CLOUD_DANCER,
+    thColor: CLOUD_DANCER_INPUT,
   },
   Menu: {
     padding: '1px'

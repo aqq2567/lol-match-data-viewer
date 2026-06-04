@@ -214,8 +214,8 @@ watch(() => messages.value.length, () => {
   flex-direction: column;
   flex: 1;
   min-height: 280px;
-  background: #0d1117;
-  border: 1px solid rgba(102, 103, 171, 0.15);
+  background: var(--chat-bg);
+  border: 1px solid var(--chat-bubble-ai-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-top: 12px;
@@ -226,14 +226,14 @@ watch(() => messages.value.length, () => {
   align-items: center;
   justify-content: space-between;
   padding: 8px 14px;
-  border-bottom: 1px solid rgba(102, 103, 171, 0.1);
+  border-bottom: 1px solid var(--chat-header-border);
   flex-shrink: 0;
 }
 
 .chat-title {
   font-size: 13px;
   font-weight: 600;
-  color: #a09de0;
+  color: var(--chat-title);
 }
 
 .chat-messages {
@@ -263,7 +263,7 @@ watch(() => messages.value.length, () => {
 }
 
 .chat-empty b {
-  color: #a09de0;
+  color: var(--chat-highlight);
 }
 
 .chat-empty-icon {
@@ -298,11 +298,11 @@ watch(() => messages.value.length, () => {
 }
 
 .avatar-ai {
-  background: linear-gradient(135deg, #8884c8, #5e5c9e);
+  background: var(--chat-avatar-ai-bg);
 }
 
 .avatar-user {
-  background: linear-gradient(135deg, #FFBE98, #e8a078);
+  background: var(--chat-avatar-user-bg);
 }
 
 .msg-bubble-wrapper {
@@ -315,12 +315,12 @@ watch(() => messages.value.length, () => {
 }
 
 .bubble-left .msg-sender {
-  color: #a09de0;
+  color: var(--chat-sender-ai);
   padding-left: 2px;
 }
 
 .bubble-right .msg-sender {
-  color: #8899aa;
+  color: var(--chat-sender-user);
   padding-right: 2px;
   text-align: right;
 }
@@ -335,17 +335,17 @@ watch(() => messages.value.length, () => {
 }
 
 .bubble-ai {
-  background: linear-gradient(135deg, #181630, #1c1a38);
-  border: 1px solid rgba(102, 103, 171, 0.2);
+  background: var(--chat-bubble-ai-bg);
+  border: 1px solid var(--chat-bubble-ai-border);
   border-radius: 2px 12px 12px 12px;
-  color: #d0cee8;
+  color: var(--chat-bubble-ai-text);
 }
 
 .bubble-user {
-  background: linear-gradient(135deg, #2e1f1a, #341f17);
-  border: 1px solid rgba(255, 190, 152, 0.15);
+  background: var(--chat-bubble-user-bg);
+  border: 1px solid var(--chat-bubble-user-border);
   border-radius: 12px 2px 12px 12px;
-  color: #f0d8c8;
+  color: var(--chat-bubble-user-text);
 }
 
 .typing-cursor {
@@ -374,9 +374,9 @@ watch(() => messages.value.length, () => {
   align-items: flex-end;
   gap: 8px;
   padding: 10px 12px;
-  border-top: 1px solid rgba(102, 103, 171, 0.1);
+  border-top: 1px solid var(--chat-input-border);
   flex-shrink: 0;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--chat-input-bar-bg);
 }
 
 .chat-input-bar :deep(.n-input) {

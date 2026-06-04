@@ -30,6 +30,24 @@
           <div class="header-mode-name">{{ modeDisplayName }}</div>
         </div>
         <div class="header-stats">
+          <n-popover
+            v-if="!canFilterTeammates"
+            trigger="hover"
+            placement="bottom"
+            :show-arrow="false"
+          >
+            <template #trigger>
+              <div class="teammate-toggle disabled">
+                <span class="toggle-label">只看队友</span>
+                <n-switch :value="false" disabled size="small" />
+              </div>
+            </template>
+            <span class="toggle-tip">{{ disableTeammatesReason }}</span>
+          </n-popover>
+          <div v-else class="teammate-toggle">
+            <span class="toggle-label">只看队友</span>
+            <n-switch :value="onlyTeammates" size="small" @update:value="onlyTeammates = $event" />
+          </div>
           <div class="stat-card">
             <span class="stat-card-num">{{ result.gameCount }}</span>
             <span class="stat-card-label">分析局数</span>
@@ -414,6 +432,7 @@ import {
   NIcon,
   NPopover,
   NSpin,
+  NSwitch,
   useMessage,
 } from 'naive-ui'
 import {
@@ -438,8 +457,45 @@ const gds = useGameDataStore()
 
 const loading = ref(false)
 const result = ref<AnalysisResult | null>(null)
-/** 响应式对局数据，供所有 computed 属性依赖追踪 */
-const analysisGames = ref<GameRecord[]>([])
+/** 原始对局数据（来自 LCU），仅 loadAnalysis 写入 */
+const _allGames = ref<GameRecord[]>([])
+
+/** 当前登录玩家的 PUUID */
+const currentPuuid = ref('')
+/** 只看队友开关 */
+const onlyTeammates = ref(false)
+
+/** 检查是否所有分析对局都包含当前登录玩家（否则无法使用只看队友） */
+const canFilterTeammates = computed(() => {
+  if (!currentPuuid.value || _allGames.value.length === 0) return false
+  return _allGames.value.every(g =>
+    g.blue_team.players.some(p => p.puuid === currentPuuid.value) ||
+    g.red_team.players.some(p => p.puuid === currentPuuid.value)
+  )
+})
+
+/** 禁止切换的原因文本 */
+const disableTeammatesReason = computed(() => {
+  if (!currentPuuid.value) return '未检测到登录玩家'
+  if (_allGames.value.length === 0) return '无对局数据'
+  return '部分对局不属于当前登录玩家，无法使用只看队友'
+})
+
+/** 响应式对局数据：根据只看队友开关自动过滤，供所有 computed 属性依赖追踪 */
+const analysisGames = computed<GameRecord[]>(() => {
+  if (!onlyTeammates.value || !currentPuuid.value || !canFilterTeammates.value) return _allGames.value
+  return _allGames.value.map(g => {
+    const onBlue = g.blue_team.players.some(p => p.puuid === currentPuuid.value)
+    const onRed = g.red_team.players.some(p => p.puuid === currentPuuid.value)
+    if (onBlue) {
+      return { ...g, red_team: { ...g.red_team, players: [] } }
+    }
+    if (onRed) {
+      return { ...g, blue_team: { ...g.blue_team, players: [] } }
+    }
+    return g
+  })
+})
 
 /** 当前选中的指标 key */
 const selectedMetric = ref<string | null>(null)
@@ -1245,7 +1301,7 @@ async function loadAnalysis() {
       players,
     }
 
-    analysisGames.value = games
+    _allGames.value = games
   } catch (e: any) {
     message.error(`分析失败: ${e.message || e}`)
   } finally {
@@ -1273,8 +1329,15 @@ function rankClass(idx: number): string {
 }
 
 
-onActivated(() => {
-  loadAnalysis()
+onActivated(async () => {
+  // 获取当前登录玩家的 PUUID（用于只看队友过滤）
+  if (!currentPuuid.value && typeof window.lcuApi !== 'undefined') {
+    try {
+      const s = await window.lcuApi.getCurrentSummoner()
+      currentPuuid.value = s.puuid
+    } catch { /* 获取失败则只看队友始终禁用 */ }
+  }
+  await loadAnalysis()
 })
 </script>
 
@@ -1404,6 +1467,34 @@ onActivated(() => {
 .back-btn {
   font-size: var(--text-sm);
 }
+
+/* ── 只看队友开关 ── */
+.teammate-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+
+.teammate-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.teammate-toggle.disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.toggle-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+}
+
 
 /* ── 主体双栏布局 ── */
 .analysis-body {
