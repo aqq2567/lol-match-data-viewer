@@ -272,14 +272,6 @@
               <div class="ranking-section">
                 <h4>{{ selectedCategory?.label }} — 玩家排名</h4>
                 <div class="custom-rank-table">
-                  <div class="rt-header">
-                    <span class="rt-col-rank">#</span>
-                    <span class="rt-col-player">玩家</span>
-                    <span class="rt-col-val">比值</span>
-                    <span v-for="r in advRawLabels" :key="r" class="rt-col-val">{{ r }}</span>
-                    <span class="rt-col-games">场次</span>
-                    <span class="rt-col-wr">胜率</span>
-                  </div>
                   <div class="rt-body" :style="{ maxHeight: tableMaxHeight + 'px' }">
                     <div
                       v-for="(row, idx) in advancedMetricRanking"
@@ -289,16 +281,14 @@
                     >
                       <span class="rt-col-rank" :class="rankClass(idx)">{{ idx + 1 }}</span>
                       <span class="rt-col-player">
-                        <LcuImage :src="profileIconUrl(row.profileIconId)" :size="28" class="rt-avatar" />
+                        <LcuImage :src="profileIconUrl(row.profileIconId)" :size="32" class="rt-avatar" />
                         <span class="rt-name">{{ shortName(row.playerName) }}</span>
                       </span>
-                      <span class="rt-col-val rt-num">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
-                      <span v-for="r in (row.raw || [])" :key="r.label" class="rt-col-val rt-num-secondary">{{ fmtNum(r.value) }}</span>
-                      <span class="rt-col-games rt-num-secondary">{{ row.gameCount }}</span>
-                      <span class="rt-col-wr">
-                        <span class="wr-text">{{ row.winRate.toFixed(0) }}%</span>
-                        <span class="wr-bar"><span class="wr-fill" :style="{ width: row.winRate + '%' }"></span></span>
+                      <span class="rt-bar-track">
+                        <span class="rt-bar-fill" :style="{ width: (row.total / maxAdvMetricValue * 100).toFixed(1) + '%' }"></span>
+                        <span class="rt-bar-val">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
                       </span>
+                      <span v-for="r in (row.raw || [])" :key="r.label" class="rt-raw-tag"><b>{{ fmtNum(r.value) }}</b> {{ r.label }}</span>
                     </div>
                   </div>
                 </div>
@@ -384,32 +374,21 @@
             <div class="ranking-section">
               <h4>{{ selectedCategory?.label }} — 玩家排名</h4>
               <div class="custom-rank-table">
-                <div class="rt-header">
-                  <span class="rt-col-rank">#</span>
-                  <span class="rt-col-player">玩家</span>
-                  <span class="rt-col-val">总计</span>
-                  <span class="rt-col-val">场均</span>
-                  <span class="rt-col-games">场次</span>
-                  <span class="rt-col-wr">胜率</span>
-                </div>
                 <div class="rt-body" :style="{ maxHeight: tableMaxHeight + 'px' }">
                   <div
                     v-for="(row, idx) in metricRanking"
                     :key="row.playerName"
                     class="rt-row table-row-transition"
-                    :class="{ 'rt-row-top': idx === 0, 'rt-row-medal': idx < 3 }"
+                    :class="{ 'rt-row-top': idx === 0 }"
                   >
                     <span class="rt-col-rank" :class="rankClass(idx)">{{ idx + 1 }}</span>
                     <span class="rt-col-player">
-                      <LcuImage :src="profileIconUrl(row.profileIconId)" :size="28" class="rt-avatar" />
+                      <LcuImage :src="profileIconUrl(row.profileIconId)" :size="32" class="rt-avatar" />
                       <span class="rt-name">{{ shortName(row.playerName) }}</span>
                     </span>
-                    <span class="rt-col-val rt-num">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
-                    <span class="rt-col-val rt-num-secondary">{{ selectedCategory?.fmt(row.average) || '—' }}</span>
-                    <span class="rt-col-games rt-num-secondary">{{ row.gameCount }}</span>
-                    <span class="rt-col-wr">
-                      <span class="wr-text">{{ row.winRate.toFixed(0) }}%</span>
-                      <span class="wr-bar"><span class="wr-fill" :style="{ width: row.winRate + '%' }"></span></span>
+                    <span class="rt-bar-track">
+                      <span class="rt-bar-fill" :style="{ width: (row.total / maxMetricValue.total * 100).toFixed(1) + '%' }"></span>
+                      <span class="rt-bar-val">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
                     </span>
                   </div>
                 </div>
@@ -597,6 +576,15 @@ const metricRanking = computed<MetricRankEntry[]>(() => {
     .sort((a, b) => b.total - a.total)
 })
 
+/** 基础指标最大值（用于横条可视化） */
+const maxMetricValue = computed(() => {
+  if (metricRanking.value.length === 0) return { total: 1, average: 1 }
+  return {
+    total: Math.max(...metricRanking.value.map(r => r.total), 1),
+    average: Math.max(...metricRanking.value.map(r => r.average), 1),
+  }
+})
+
 /** 高阶指标排名（按总量比值聚合，而非单局均值简单平均） */
 const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   const games = analysisGames.value
@@ -736,6 +724,12 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
       }
     })
     .sort((a, b) => b.total - a.total)
+})
+
+/** 高阶指标最大值（用于横条可视化） */
+const maxAdvMetricValue = computed(() => {
+  if (advancedMetricRanking.value.length === 0) return 1
+  return Math.max(...advancedMetricRanking.value.map(r => r.total), 1)
 })
 
 /**
@@ -1273,12 +1267,6 @@ function rankClass(idx: number): string {
   return ''
 }
 
-/** 高阶排名表的动态原始数据列标签 */
-const advRawLabels = computed(() => {
-  const first = advancedMetricRanking.value[0]
-  return first?.raw ? first.raw.map(r => r.label) : []
-})
-
 
 onActivated(() => {
   loadAnalysis()
@@ -1741,81 +1729,93 @@ onActivated(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
-/* ── 自定义排名表 ── */
+.ranking-section h4::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+  margin-top: -1px;
+}
+
+/* ── 自定义排名表（LOL 结算界面横条风格） ── */
 .custom-rank-table {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--glass-bg);
   overflow: hidden;
-}
-
-.rt-header {
-  display: flex;
-  align-items: center;
-  padding: 8px 14px;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  background: var(--bg-section);
-  border-bottom: 1px solid var(--glass-border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  box-shadow: var(--card-shadow);
 }
 
 .rt-body {
   overflow-y: auto;
+  padding: 8px 0;
 }
 
 .rt-row {
   display: flex;
   align-items: center;
-  padding: 8px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-}
-
-.rt-row:last-child {
-  border-bottom: none;
+  padding: 6px 16px;
+  gap: 12px;
+  transition: background 0.15s ease;
 }
 
 .rt-row:hover {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .rt-row.rt-row-top {
-  border-left: 3px solid var(--accent-gold);
+  background: rgba(232, 168, 64, 0.05);
 }
 
 .rt-row.rt-row-bottom {
-  border-left: 3px solid var(--accent-red);
+  background: rgba(232, 64, 87, 0.03);
 }
 
-/* 列宽 */
-.rt-col-rank { width: 36px; flex-shrink: 0; text-align: center; }
-.rt-col-player { flex: 1; min-width: 120px; display: flex; align-items: center; gap: 8px; }
-.rt-col-val { width: 80px; flex-shrink: 0; text-align: right; }
-.rt-col-games { width: 48px; flex-shrink: 0; text-align: right; }
-.rt-col-wr { width: 110px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-left: 8px; }
-
-/* 排名数字 */
+/* 排名 */
 .rt-col-rank {
+  width: 28px;
+  flex-shrink: 0;
+  text-align: center;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-tertiary);
   font-family: var(--font-number);
 }
 
-.rt-col-rank.rank-gold { color: var(--accent-gold); font-weight: 800; font-size: var(--text-base); }
-.rt-col-rank.rank-silver { color: #a0a8b0; font-weight: 700; }
-.rt-col-rank.rank-bronze { color: #b08860; font-weight: 700; }
+.rt-col-rank.rank-gold {
+  color: var(--accent-gold);
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(232, 168, 64, 0.3);
+}
 
-/* 玩家列 */
+.rt-col-rank.rank-silver {
+  color: #a0a8b0;
+  font-weight: 700;
+}
+
+.rt-col-rank.rank-bronze {
+  color: #b08860;
+  font-weight: 700;
+}
+
+/* 玩家 */
+.rt-col-player {
+  width: 140px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .rt-avatar {
   border-radius: 50%;
   flex-shrink: 0;
@@ -1831,52 +1831,110 @@ onActivated(() => {
   white-space: nowrap;
 }
 
-/* 数值 */
-.rt-num {
-  font-size: var(--text-base);
+/* ── 横条 ── */
+.rt-bar-track {
+  flex: 1;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rt-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(96, 160, 220, 0.4), rgba(96, 160, 220, 0.25));
+  border-radius: 4px;
+  min-width: 0;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rt-row.rt-row-top .rt-bar-fill {
+  background: linear-gradient(90deg, rgba(232, 168, 64, 0.55), rgba(232, 168, 64, 0.3));
+}
+
+.rt-row.rt-row-bottom .rt-bar-fill {
+  background: linear-gradient(90deg, rgba(232, 64, 87, 0.4), rgba(232, 64, 87, 0.2));
+}
+
+.rt-bar-val {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
+  padding-right: 10px;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--text-primary);
   font-family: var(--font-number);
   font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
 }
 
-.rt-num-secondary {
-  font-size: var(--text-sm);
+/* 高阶原始数据标签 */
+.rt-raw-tag {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rt-raw-tag b {
   color: var(--text-secondary);
   font-family: var(--font-number);
-  font-feature-settings: 'tnum' 1;
 }
 
-/* 胜率列 */
-.wr-text {
+/* 排名数字 */
+.rt-col-rank {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--text-secondary);
-  min-width: 32px;
-  text-align: right;
+  color: var(--text-tertiary);
   font-family: var(--font-number);
-  font-feature-settings: 'tnum' 1;
 }
 
-.wr-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--bg-section);
-  border-radius: 2px;
+.rt-col-rank.rank-gold {
+  color: var(--accent-gold);
+  font-weight: 800;
+  font-size: var(--text-lg);
+  text-shadow: 0 0 10px rgba(232, 168, 64, 0.4);
+  transform: translateX(-2px);
+}
+
+.rt-col-rank.rank-silver {
+  color: #a0a8b0;
+  font-weight: 700;
+  font-size: var(--text-base);
+  text-shadow: 0 0 8px rgba(160, 168, 176, 0.3);
+}
+
+.rt-col-rank.rank-bronze {
+  color: #b08860;
+  font-weight: 700;
+  font-size: var(--text-base);
+  text-shadow: 0 0 8px rgba(176, 136, 96, 0.3);
+}
+
+/* 玩家列 */
+.rt-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.rt-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.wr-fill {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent-green), #5cd890);
-  transition: width 0.3s ease;
-}
-
-.rt-row.rt-row-bottom .wr-fill {
-  background: linear-gradient(90deg, var(--accent-red), #f06070);
-}
 
 /* ── 悬浮弹窗 ── */
 .popover-stats {
