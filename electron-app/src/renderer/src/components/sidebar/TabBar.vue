@@ -9,7 +9,7 @@
     >
       <LcuImage
         class="tab-icon"
-        :src="`/lol-game-data/assets/v1/profile-icons/${tab.profileIconId || 0}.jpg`"
+        :src="profileIcon(tab.profileIconId || 0)"
         :size="24"
       />
       <span class="tab-name">{{ tab.name }}</span>
@@ -30,6 +30,7 @@ import { CloseOutline } from '@vicons/ionicons5'
 import { useTabStore } from '@/stores/tab'
 import { storeToRefs } from 'pinia'
 import LcuImage from '@/components/widgets/LcuImage.vue'
+import { profileIcon } from '@/utils/lcu-images'
 
 const tabStore = useTabStore()
 const { tabs, activeTabId } = storeToRefs(tabStore)

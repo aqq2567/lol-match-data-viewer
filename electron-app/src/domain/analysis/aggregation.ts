@@ -3,7 +3,7 @@
  * 纯计算，不依赖 Vue/Electron，可直接单元测试
  */
 
-import type { GameRecord, PlayerStats } from '@shared/types'
+import type { GameRecord, PlayerAnalysis, PlayerStats } from '@shared/types'
 import type { MetricRankEntry, PlayerFullAgg, PodiumEntry } from '@domain/analysis/types'
 
 /** 按玩家聚合对局基本数据（击杀/死亡/助攻/胜场） */
@@ -118,4 +118,89 @@ export function computePodium(
     })
     .sort((a, b) => b.totalValue - a.totalValue)
     .slice(0, 3)
+}
+
+/** 计算某一统计量的全队最大值 */
+export function findBestStat<T extends { stats: PlayerStats }>(
+  players: T[],
+  getter: (stats: PlayerStats) => number,
+): number {
+  if (players.length === 0) return 0
+  return Math.max(...players.map((p) => getter(p.stats)))
+}
+
+/** 找出统计量最高的玩家（若最大值 ≤ 0 返回 null） */
+export function findBestPlayer<T extends { stats: PlayerStats }>(
+  players: T[],
+  getter: (stats: PlayerStats) => number,
+): T | null {
+  if (players.length === 0) return null
+  let best: T = players[0]
+  let max = -Infinity
+  for (const p of players) {
+    const v = getter(p.stats)
+    if (v > max) {
+      max = v
+      best = p
+    }
+  }
+  return max > 0 ? best : null
+}
+
+/** 计算领奖台条目的胜率百分比 */
+export function computePodiumWinRate(e: PodiumEntry): string {
+  return e.gameCount > 0 ? ((e.winCount / e.gameCount) * 100).toFixed(0) : '0'
+}
+
+/** 从对局列表计算玩家分析（按 puuid 聚合，计算平均值） */
+export function computePlayerAnalysis(games: GameRecord[]): PlayerAnalysis[] {
+  const playerMap = new Map<
+    string,
+    { puuid: string; summonerName: string; statsList: PlayerStats[]; wins: number }
+  >()
+
+  for (const game of games) {
+    for (const p of [...game.blue_team.players, ...game.red_team.players]) {
+      const key = p.puuid || p.summoner_name
+      if (!playerMap.has(key)) {
+        playerMap.set(key, {
+          puuid: key,
+          summonerName: p.summoner_name,
+          statsList: [],
+          wins: 0,
+        })
+      }
+      const entry = playerMap.get(key)!
+      entry.statsList.push(p.stats)
+      if (p.stats.win) entry.wins++
+    }
+  }
+
+  return Array.from(playerMap.values())
+    .map((e) => {
+      const n = e.statsList.length
+      const avg = (getter: (s: PlayerStats) => number) =>
+        e.statsList.reduce((sum, s) => sum + getter(s), 0) / n
+
+      return {
+        puuid: e.puuid,
+        summonerName: e.summonerName,
+        gameCount: n,
+        winCount: e.wins,
+        loseCount: n - e.wins,
+        winRate: (e.wins / n) * 100,
+        avgKills: avg((s) => s.kills),
+        avgDeaths: avg((s) => s.deaths),
+        avgAssists: avg((s) => s.assists),
+        avgKda: avg((s) => (s.kills + s.assists) / Math.max(s.deaths, 1)),
+        avgDamageDealt: avg((s) => s.damage.total_to_champs),
+        avgDamageTaken: avg((s) => s.damage.total_taken),
+        avgTotalHeal: avg((s) => s.survival.total_heal),
+        avgCs: avg((s) => s.cs.total),
+        avgGold: avg((s) => s.economy.gold_earned),
+        avgVisionScore: avg((s) => s.vision.score),
+        avgCcTime: avg((s) => s.cc.total_cc_dealt),
+      }
+    })
+    .sort((a, b) => b.gameCount - a.gameCount)
 }

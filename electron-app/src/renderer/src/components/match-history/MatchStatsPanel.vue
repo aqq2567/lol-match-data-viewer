@@ -57,7 +57,7 @@
       >
         <LcuImage
           class="player-icon"
-          :src="`/lol-game-data/assets/v1/profile-icons/${m.profileIconId}.jpg`"
+          :src="profileIcon(m.profileIconId)"
           :size="16"
         />
         <span class="player-name">{{ getPlayerDisplayName(m) }}</span>
@@ -75,7 +75,7 @@
       >
         <LcuImage
           class="player-icon"
-          :src="`/lol-game-data/assets/v1/profile-icons/${m.profileIconId}.jpg`"
+          :src="profileIcon(m.profileIconId)"
           :size="16"
         />
         <span class="player-name">{{ getPlayerDisplayName(m) }}</span>
@@ -86,12 +86,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import type { GameSummary } from '@shared/types'
+import { computed } from 'vue'
 import { getPlayerDisplayName } from '@shared/utils/mappings'
+import {
+  computeFrequentChampions,
+  countPlayerFreq,
+  extractTeammates,
+  extractOpponents,
+  computeAvgKda,
+  computeWinStats,
+  formatTotalGamesDisplay,
+} from '@domain/analysis/match-stats'
 import ChampionIcon from '@/components/widgets/ChampionIcon.vue'
 import LcuImage from '@/components/widgets/LcuImage.vue'
 import { useGameDataStore } from '@/stores/game-data'
+import { profileIcon } from '@/utils/lcu-images'
 
 const gds = useGameDataStore()
 
@@ -105,84 +114,28 @@ const props = defineProps<{
 }>()
 
 /** 总场次显示 */
-const totalGamesDisplay = computed(() => {
-  if (props.totalGames > 0 && props.totalGames > props.games.length) {
-    return `${props.totalGames} 场`
-  }
-  if (props.games.length < props.pageSize) {
-    return `${(props.currentPage - 1) * props.pageSize + props.games.length} 场`
-  }
-  return `${(props.currentPage - 1) * props.pageSize + props.games.length}+ 场`
-})
+const totalGamesDisplay = computed(() =>
+  formatTotalGamesDisplay(props.totalGames, props.games.length, props.currentPage, props.pageSize),
+)
 
 /** 平均 KDA */
-const avgKda = computed(() => {
-  if (props.games.length === 0) return '-'
-  const sum = props.games.reduce((s, g) => s + g.kdaRatio, 0)
-  return (sum / props.games.length).toFixed(2)
-})
+const avgKda = computed(() => computeAvgKda(props.games))
 
 /** 胜场/负场/胜率 */
-const winCount = computed(() => props.games.filter(g => g.win).length)
-const loseCount = computed(() => props.games.filter(g => !g.win && g.gameMode !== 'PRACTICETOOL').length)
-const winRate = computed(() => {
-  const total = winCount.value + loseCount.value
-  if (total === 0) return '0'
-  return (winCount.value / total * 100).toFixed(0)
-})
+const _win = computed(() => computeWinStats(props.games))
+const winCount = computed(() => _win.value.wins)
+const loseCount = computed(() => _win.value.losses)
+const winRate = computed(() => _win.value.ratePercent)
 
 /** 常用英雄 */
-const frequentChampions = computed(() => {
-  const map: Record<number, number> = {}
-  for (const g of props.games) {
-    map[g.championId] = (map[g.championId] || 0) + 1
-  }
-  return Object.entries(map)
-    .map(([id, count]) => ({ championId: Number(id), count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
-})
-
-interface PlayerFreq {
-  puuid: string
-  gameName: string
-  summonerName: string
-  profileIconId: number
-  count: number
-}
-
-function countPlayerFreq(predicate: (g: GameSummary) => { puuid: string; gameName: string; summonerName: string; profileIconId: number }[]): PlayerFreq[] {
-  const map = new Map<string, PlayerFreq>()
-  for (const g of props.games) {
-    for (const p of predicate(g)) {
-      if (p.puuid === props.selfPuuid) continue
-      const existing = map.get(p.puuid)
-      if (existing) {
-        existing.count++
-      } else {
-        map.set(p.puuid, { ...p, count: 1 })
-      }
-    }
-  }
-  return Array.from(map.values())
-    .filter(f => f.count >= 2)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
-}
+const frequentChampions = computed(() => computeFrequentChampions(props.games))
 
 const frequentTeammates = computed(() =>
-  countPlayerFreq(g => {
-    const selfTeam = g.blueParticipants.some(p => p.puuid === props.selfPuuid) ? g.blueParticipants : g.redParticipants
-    return selfTeam.filter(p => p.puuid !== props.selfPuuid)
-  })
+  countPlayerFreq(props.games, props.selfPuuid, extractTeammates)
 )
 
 const frequentOpponents = computed(() =>
-  countPlayerFreq(g => {
-    const selfTeam = g.blueParticipants.some(p => p.puuid === props.selfPuuid) ? g.blueParticipants : g.redParticipants
-    const oppTeam = selfTeam === g.blueParticipants ? g.redParticipants : g.blueParticipants
-    return oppTeam
-  })
+  countPlayerFreq(props.games, props.selfPuuid, extractOpponents)
 )
 </script>
 

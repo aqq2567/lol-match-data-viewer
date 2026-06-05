@@ -14,6 +14,7 @@
  *  对应 LeagueAkari 的 ChampionIcon.vue */
 import { computed } from 'vue'
 import LcuImage from './LcuImage.vue'
+import { championIcon } from '@/utils/lcu-images'
 
 const { championId = -1, stretched = true, round = false, size = 48 } = defineProps<{
   championId?: number
@@ -22,10 +23,7 @@ const { championId = -1, stretched = true, round = false, size = 48 } = definePr
   size?: number
 }>()
 
-const imageUrl = computed(() => {
-  if (!championId) return ''
-  return `/lol-game-data/assets/v1/champion-icons/${championId}.png`
-})
+const imageUrl = computed(() => championIcon(championId))
 </script>
 
 <style lang="less" scoped>

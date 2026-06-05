@@ -235,8 +235,10 @@ import {
   type FriendSummary,
 } from '@shared/utils/friend-analysis'
 import LcuImage from '@/components/widgets/LcuImage.vue'
-import type { FriendMetricDef, FriendPodiumEntry } from '@domain/analysis/types'
+import type { FriendPodiumEntry } from '@domain/analysis/types'
+import { FRIEND_METRICS, computeSortedByMetric, computeFriendPodium, getFirstPlaceTitle } from '@domain/analysis/friends'
 import { shortName } from '@/utils/display'
+import { profileIcon as profileIconUrl } from '@/utils/lcu-images'
 import { useThemeStore } from '@/stores/theme'
 
 const themeStore = useThemeStore()
@@ -269,89 +271,26 @@ const summary = computed<FriendSummary>(() => {
 })
 
 
-const friendMetrics: FriendMetricDef[] = [
-  {
-    key: 'gamesTogether',
-    label: '一起场次',
-    colorClass: 'cat-blue',
-    getter: (f) => f.gamesTogether,
-    fmt: (v) => String(Math.round(v)),
-    minGames: 3,
-  },
-  {
-    key: 'winRate',
-    label: '一起时胜率',
-    colorClass: 'cat-green',
-    getter: (f) => f.winRate,
-    fmt: (v) => (v * 100).toFixed(0) + '%',
-    minGames: 5,
-  },
-  {
-    key: 'winDelta',
-    label: '胜率提升',
-    colorClass: 'cat-purple',
-    getter: (f) => f.winRate - f.soloWinRate,
-    fmt: (v) => (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%',
-    minGames: 5,
-  },
-  {
-    key: 'collectorRatio',
-    label: '收集者率',
-    colorClass: 'cat-red',
-    getter: (f) => f.gamesTogether > 0 ? f.collectorGames / f.gamesTogether : 0,
-    fmt: (v) => (v * 100).toFixed(0) + '%',
-    minGames: 3,
-  },
-  {
-    key: 'heartsteelRatio',
-    label: '心之钢率',
-    colorClass: 'cat-orange',
-    getter: (f) => f.gamesTogether > 0 ? f.heartsteelGames / f.gamesTogether : 0,
-    fmt: (v) => (v * 100).toFixed(0) + '%',
-    minGames: 3,
-  },
-]
+const friendMetrics = FRIEND_METRICS
 
 const selectedCategory = computed(() =>
   friendMetrics.find((m) => m.key === selectedMetric.value) || null
 )
 
 /** 按选中指标降序排列，并应用指标最低场次门槛 */
-const sortedByMetric = computed<FriendStats[]>(() => {
-  const cat = selectedCategory.value
-  if (!cat) return [...friends.value]
-  return [...friends.value]
-    .filter((f) => f.gamesTogether >= cat.minGames)
-    .sort((a, b) => cat.getter(b) - cat.getter(a))
-})
+const sortedByMetric = computed<FriendStats[]>(() =>
+  computeSortedByMetric(friends.value, selectedCategory.value)
+)
 
 
 const friendPodium = computed<FriendPodiumEntry[]>(() => {
   if (!selectedCategory.value) return []
-  const cat = selectedCategory.value
-  return sortedByMetric.value.slice(0, 3).map((f) => ({
-    name: f.name,
-    profileIconId: f.profileIconId,
-    totalValue: cat.getter(f),
-    displayValue: cat.fmt(cat.getter(f)),
-    gamesTogether: f.gamesTogether,
-    winRate: f.winRate,
-    soloWinRate: f.soloWinRate,
-    collectorGames: f.collectorGames,
-    heartsteelGames: f.heartsteelGames,
-  }))
+  return computeFriendPodium(sortedByMetric.value, selectedCategory.value)
 })
 
-const firstPlaceTitle = computed(() => {
-  const map: Record<string, string> = {
-    gamesTogether: '最佳拍档',
-    winRate: '天选搭档',
-    winDelta: '团队催化剂',
-    collectorRatio: '最爱收集者之人',
-    heartsteelRatio: '最爱心之钢之人',
-  }
-  return selectedMetric.value ? (map[selectedMetric.value] || '') : ''
-})
+const firstPlaceTitle = computed(() =>
+  getFirstPlaceTitle(selectedMetric.value)
+)
 
 const tableMaxHeight = computed(() => {
   const count = sortedByMetric.value.length
@@ -486,10 +425,6 @@ const friendColumns = computed(() => {
 
   return cols
 })
-
-function profileIconUrl(iconId: number): string {
-  return `/lol-game-data/assets/v1/profile-icons/${iconId || 0}.jpg`
-}
 
 function daysAgo(ts: number): string {
   const diff = Date.now() - ts

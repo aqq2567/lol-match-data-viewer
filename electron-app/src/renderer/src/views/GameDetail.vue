@@ -136,6 +136,7 @@ import type { GameRecord, PlayerData, PlayerStats } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
 import { getGameModeName, getQueueName, getMapName } from '@shared/utils/mappings'
 import { formatGameDuration } from '@/utils/format'
+import { findBestStat, findBestPlayer } from '@domain/analysis/aggregation'
 import PlayerCard from '@/components/PlayerCard.vue'
 
 const route = useRoute()
@@ -181,26 +182,9 @@ const allPlayers = computed<PlayerData[]>(() => {
   return [...game.value.blue_team.players, ...game.value.red_team.players]
 })
 
-/** 计算某一统计量的全场最大值 */
-function findBest(getter: (s: PlayerStats) => number) {
-  if (!allPlayers.value.length) return 0
-  return Math.max(...allPlayers.value.map(p => getter(p.stats)))
-}
-
-/** 找出最大值的玩家 */
-function findBestPlayer(getter: (s: PlayerStats) => number): PlayerData | null {
-  if (!allPlayers.value.length) return null
-  let best: PlayerData = allPlayers.value[0]
-  let max = -Infinity
-  for (const p of allPlayers.value) {
-    const v = getter(p.stats)
-    if (v > max) { max = v; best = p }
-  }
-  return max > 0 ? best : null
-}
-
 /** 全场最佳指标列表（供顶部汇总 + 传入子组件高亮） */
 const bests = computed(() => {
+  const all = allPlayers.value
   const b: Record<string, { player: PlayerData | null; value: number }> = {}
   const fields: [string, (s: PlayerStats) => number, string][] = [
     ['damage_total_to_champs', s => s.damage.total_to_champs, '伤害最高'],
@@ -217,7 +201,7 @@ const bests = computed(() => {
     ['assists', s => s.assists, '助攻最多'],
   ]
   for (const [key, getter] of fields) {
-    b[key] = { player: findBestPlayer(getter), value: findBest(getter) }
+    b[key] = { player: findBestPlayer(all, getter), value: findBestStat(all, getter) }
   }
   return b
 })

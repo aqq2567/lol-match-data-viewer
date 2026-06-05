@@ -41,7 +41,7 @@
         <div class="summoner-info">
           <LcuImage
             class="profile-img"
-            :src="`/lol-game-data/assets/v1/profile-icons/${listData.summoner.profileIconId || 0}.jpg`"
+            :src="profileIcon(listData.summoner.profileIconId || 0)"
             :size="40"
           />
           <span class="summoner-name">{{ displayName }}</span>
@@ -165,6 +165,7 @@ import { useGameDataStore } from '@/stores/game-data'
 import MatchHistoryCard from '@/components/match-history/MatchHistoryCard.vue'
 import MatchStatsPanel from '@/components/match-history/MatchStatsPanel.vue'
 import LcuImage from '@/components/widgets/LcuImage.vue'
+import { profileIcon } from '@/utils/lcu-images'
 
 const props = defineProps<{
   puuid: string

@@ -95,7 +95,7 @@
         >
           <LcuImage
             class="champ-img"
-            :src="`/lol-game-data/assets/v1/champion-icons/${p.championId}.png`"
+            :src="championIcon(p.championId)"
             :size="16"
           />
           <span
@@ -114,7 +114,7 @@
         >
           <LcuImage
             class="champ-img"
-            :src="`/lol-game-data/assets/v1/champion-icons/${p.championId}.png`"
+            :src="championIcon(p.championId)"
             :size="16"
           />
           <span
@@ -145,6 +145,7 @@ import type { GameSummary, ParticipantBrief } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
 import { useTabStore } from '@/stores/tab'
 import { formatGameDuration } from '@/utils/format'
+import { championIcon } from '@/utils/lcu-images'
 import { formatGameModeLabel, getPlayerDisplayName } from '@shared/utils/mappings'
 import LcuImage from '@/components/widgets/LcuImage.vue'
 import ChampionIcon from '@/components/widgets/ChampionIcon.vue'

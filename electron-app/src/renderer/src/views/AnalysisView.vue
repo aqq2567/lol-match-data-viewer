@@ -442,7 +442,7 @@ import {
   ChevronForwardOutline,
   TrophyOutline,
 } from '@vicons/ionicons5'
-import type { GameRecord, PlayerStats, AnalysisResult, PlayerAnalysis } from '@shared/types'
+import type { GameRecord, AnalysisResult } from '@shared/types'
 import LcuImage from '@/components/widgets/LcuImage.vue'
 import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
 import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
@@ -451,6 +451,7 @@ import { isBuildItem } from '@shared/utils/mappings'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
 import { shortName } from '@/utils/display'
+import { championIcon as championIconUrl, profileIcon as profileIconUrl } from '@/utils/lcu-images'
 import { formatCompactNumber as fmtNum } from '@shared/utils/mappings'
 import type {
   PodiumEntry,
@@ -462,7 +463,7 @@ import type {
   GlobalAugmentFreq,
   PlayerFavAug,
 } from '@domain/analysis/types'
-import { buildPlayerAggMap, computeMetricRanking, computePodium } from '@domain/analysis/aggregation'
+import { buildPlayerAggMap, computeMetricRanking, computePodium, computePodiumWinRate as podiumWinRate, computePlayerAnalysis } from '@domain/analysis/aggregation'
 import { computeAdvancedMetricRanking } from '@domain/analysis/advanced-metrics'
 import {
   computeGlobalChampionFreq,
@@ -541,13 +542,6 @@ function selectMetric(key: string) {
   selectedMetric.value = selectedMetric.value === key ? null : key
 }
 
-/** LCU 资源 URL */
-function championIconUrl(championId: number): string {
-  return `/lol-game-data/assets/v1/champion-icons/${championId}.png`
-}
-function profileIconUrl(iconId: number): string {
-  return `/lol-game-data/assets/v1/profile-icons/${iconId || 0}.jpg`
-}
 
 /** 当前模式的基础指标 */
 const basicMetrics = computed<MetricDef[]>(() => {
@@ -650,9 +644,6 @@ const metricPodium = computed<PodiumEntry[]>(() => {
   return computePodium(games, aggMap, cat.getter, cat.fmt)
 })
 
-function podiumWinRate(e: PodiumEntry): string {
-  return e.gameCount > 0 ? ((e.winCount / e.gameCount) * 100).toFixed(0) : '0'
-}
 
 /** 全局装备频次 TOP 10 */
 const globalItemFreq = computed(() => {
@@ -773,57 +764,7 @@ async function loadAnalysis() {
       console.log(`[LCU:ANALYSIS] 检测到模式: ${cfg.displayName} (${currentMode.value})`)
     }
 
-    const playerMap = new Map<string, {
-      puuid: string
-      summonerName: string
-      games: PlayerStats[]
-      wins: number
-    }>()
-
-    for (const game of games) {
-      for (const p of [...game.blue_team.players, ...game.red_team.players]) {
-        const key = p.puuid || p.summoner_name
-        if (!playerMap.has(key)) {
-          playerMap.set(key, {
-            puuid: key,
-            summonerName: p.summoner_name,
-            games: [],
-            wins: 0,
-          })
-        }
-        const entry = playerMap.get(key)!
-        entry.games.push(p.stats)
-        if (p.stats.win) entry.wins++
-      }
-    }
-
-    const players: PlayerAnalysis[] = Array.from(playerMap.values())
-      .map((e) => {
-        const n = e.games.length
-        const avg = (getter: (s: PlayerStats) => number) =>
-          e.games.reduce((sum, s) => sum + getter(s), 0) / n
-
-        return {
-          puuid: e.puuid,
-          summonerName: e.summonerName,
-          gameCount: n,
-          winCount: e.wins,
-          loseCount: n - e.wins,
-          winRate: (e.wins / n) * 100,
-          avgKills: avg((s) => s.kills),
-          avgDeaths: avg((s) => s.deaths),
-          avgAssists: avg((s) => s.assists),
-          avgKda: avg((s) => (s.kills + s.assists) / Math.max(s.deaths, 1)),
-          avgDamageDealt: avg((s) => s.damage.total_to_champs),
-          avgDamageTaken: avg((s) => s.damage.total_taken),
-          avgTotalHeal: avg((s) => s.survival.total_heal),
-          avgCs: avg((s) => s.cs.total),
-          avgGold: avg((s) => s.economy.gold_earned),
-          avgVisionScore: avg((s) => s.vision.score),
-          avgCcTime: avg((s) => s.cc.total_cc_dealt),
-        }
-      })
-      .sort((a, b) => b.gameCount - a.gameCount)
+    const players = computePlayerAnalysis(games)
 
     const winCount = games.filter(
       (g) => g.blue_team.win || g.red_team.win
