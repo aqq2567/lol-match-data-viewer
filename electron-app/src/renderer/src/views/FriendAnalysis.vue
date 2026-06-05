@@ -235,6 +235,7 @@ import {
   type FriendSummary,
 } from '@shared/utils/friend-analysis'
 import LcuImage from '@/components/widgets/LcuImage.vue'
+import type { FriendMetricDef, FriendPodiumEntry } from '@domain/analysis/types'
 import { shortName } from '@/utils/display'
 import { useThemeStore } from '@/stores/theme'
 
@@ -267,16 +268,6 @@ const summary = computed<FriendSummary>(() => {
   return computeFriendSummary(friends.value, matchData.value.games.length)
 })
 
-/** 指标定义 */
-interface FriendMetricDef {
-  key: string
-  label: string
-  colorClass: string
-  getter: (f: FriendStats) => number
-  fmt: (v: number) => string
-  /** 该指标要求的最低一起场次（胜率类指标需更多样本） */
-  minGames: number
-}
 
 const friendMetrics: FriendMetricDef[] = [
   {
@@ -334,18 +325,6 @@ const sortedByMetric = computed<FriendStats[]>(() => {
     .sort((a, b) => cat.getter(b) - cat.getter(a))
 })
 
-/** 领奖台 TOP 3 */
-interface FriendPodiumEntry {
-  name: string
-  profileIconId: number
-  totalValue: number
-  displayValue: string
-  gamesTogether: number
-  winRate: number
-  soloWinRate: number
-  collectorGames: number
-  heartsteelGames: number
-}
 
 const friendPodium = computed<FriendPodiumEntry[]>(() => {
   if (!selectedCategory.value) return []

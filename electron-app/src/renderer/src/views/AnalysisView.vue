@@ -452,6 +452,17 @@ import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analys
 import { useGameDataStore } from '@/stores/game-data'
 import { shortName } from '@/utils/display'
 import { formatCompactNumber as fmtNum } from '@shared/utils/mappings'
+import type {
+  PodiumEntry,
+  PlayerFullAgg,
+  MetricRankEntry,
+  PlayerFavItem,
+  PlayerChampionPool,
+  GlobalChampFreq,
+  GlobalItemFreq,
+  GlobalAugmentFreq,
+  PlayerFavAug,
+} from '@domain/analysis/types'
 
 const router = useRouter()
 const message = useMessage()
@@ -548,29 +559,6 @@ const selectedCategory = computed(() =>
   || null
 )
 
-/** 领奖台单条数据 */
-interface PodiumEntry {
-  playerName: string
-  profileIconId: number
-  totalValue: number
-  displayValue: string
-  gameCount: number
-  winCount: number
-  totalKills: number
-  totalDeaths: number
-  totalAssists: number
-  avgKda: string
-}
-
-/** 玩家全维度聚合 */
-interface PlayerFullAgg {
-  profileIconId: number
-  gameCount: number
-  winCount: number
-  totalKills: number
-  totalDeaths: number
-  totalAssists: number
-}
 
 function buildPlayerAggMap(games: GameRecord[]): Map<string, PlayerFullAgg> {
   const map = new Map<string, PlayerFullAgg>()
@@ -591,18 +579,6 @@ function buildPlayerAggMap(games: GameRecord[]): Map<string, PlayerFullAgg> {
   return map
 }
 
-/** 指标排名条目 */
-interface MetricRankEntry {
-  playerName: string
-  profileIconId: number
-  total: number
-  average: number
-  gameCount: number
-  winCount: number
-  winRate: number
-  /** 高阶指标原始数据（可选） */
-  raw?: { label: string; value: number }[]
-}
 
 /** 当前选中指标的玩家排名（按总计降序） */
 const metricRanking = computed<MetricRankEntry[]>(() => {
@@ -904,15 +880,6 @@ const globalItemFreq = computed(() => {
     .slice(0, 10)
 })
 
-interface PlayerFavItem {
-  playerName: string
-  profileIconId: number
-  itemId: number
-  itemName: string
-  iconPath: string
-  count: number
-  totalGames: number
-}
 
 /** 每个玩家最爱装备（取该玩家出现次数最多的装备） */
 const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
@@ -963,16 +930,6 @@ const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
     .filter(p => p.itemId > 0)
 })
 
-interface PlayerChampionPool {
-  playerName: string
-  profileIconId: number
-  uniqueChampions: number
-  mostPlayedChampionId: number
-  mostPlayedChampionCount: number
-  favChampWins: number
-  totalGames: number
-  winCount: number
-}
 
 const playerChampionPools = computed<PlayerChampionPool[]>(() => {
   const games = analysisGames.value
@@ -1026,11 +983,6 @@ const playerChampionPools = computed<PlayerChampionPool[]>(() => {
     .sort((a, b) => b.uniqueChampions - a.uniqueChampions)
 })
 
-interface GlobalChampFreq {
-  championId: number
-  count: number
-  name: string
-}
 
 /** 全局英雄选取频次 TOP 10（所有对局所有玩家） */
 const globalChampionFreq = computed<GlobalChampFreq[]>(() => {
@@ -1102,16 +1054,6 @@ const globalAugmentFreq = computed(() => {
     .slice(0, 10)
 })
 
-interface PlayerFavAug {
-  playerName: string
-  profileIconId: number
-  augmentId: number
-  augmentName: string
-  iconPath: string
-  rarity: string
-  count: number
-  totalGames: number
-}
 
 /** 每个玩家最常选的增幅 */
 const playerFavoriteAugments = computed<PlayerFavAug[]>(() => {
