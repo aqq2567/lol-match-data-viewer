@@ -447,7 +447,7 @@ import LcuImage from '@/components/widgets/LcuImage.vue'
 import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
 import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
 import ChatPanel from '@/components/chat/ChatPanel.vue'
-import { isBuildItem, getRoleName } from '@shared/utils/mappings'
+import { isBuildItem } from '@shared/utils/mappings'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
 import { shortName } from '@/utils/display'
@@ -463,6 +463,19 @@ import type {
   PlayerFavAug,
 } from '@domain/analysis/types'
 import { buildPlayerAggMap, computeMetricRanking, computePodium } from '@domain/analysis/aggregation'
+import { computeAdvancedMetricRanking } from '@domain/analysis/advanced-metrics'
+import {
+  computeGlobalChampionFreq,
+  computeGlobalItemFreq,
+  computeGlobalAugmentFreq,
+  computePlayerChampionPools,
+  computePlayerFavoriteItems,
+  computePlayerFavoriteAugments,
+  sortPlayerAugmentsByFreq,
+  getChampionUsers as getChampionUsersPure,
+  getItemUsers as getItemUsersPure,
+  getAugmentUsers as getAugmentUsersPure,
+} from '@domain/analysis/frequency'
 
 const router = useRouter()
 const message = useMessage()
@@ -581,141 +594,13 @@ const maxMetricValue = computed(() => {
 const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   const games = analysisGames.value
   if (!games || !selectedCategory.value || !isAdvancedMetric(selectedMetric.value)) return []
-
   const key = selectedMetric.value
   if (!key) return []
-
-  // 角色率指标：统计每个玩家选了某类英雄的局数占比
-  const ROLE_RATE_KEYS = new Set(['fighterRate', 'tankRate', 'mageRate', 'assassinRate', 'marksmanRate', 'supportRate'])
-  const ROLE_TAG_REVERSE: Record<string, string> = {
-    fighterRate: 'Fighter', tankRate: 'Tank', mageRate: 'Mage',
-    assassinRate: 'Assassin', marksmanRate: 'Marksman', supportRate: 'Support',
-  }
-
-  if (ROLE_RATE_KEYS.has(key)) {
-    const targetTag = ROLE_TAG_REVERSE[key] // e.g. "Fighter"
-    const playerRoleData = new Map<string, { profileIconId: number; roleCount: number; gameCount: number; winCount: number }>()
-    for (const g of games) {
-      for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-        const name = p.summoner_name
-        if (!playerRoleData.has(name)) {
-          playerRoleData.set(name, { profileIconId: p.profile_icon_id, roleCount: 0, gameCount: 0, winCount: 0 })
-        }
-        const d = playerRoleData.get(name)!
-        d.gameCount++
-        if (p.stats.win) d.winCount++
-        const champ = gds.champions[p.champion_id]
-        const champRoles: string[] = (champ as any)?.roles || (champ as any)?.tags || []
-        if (champRoles.some(r => r.toLowerCase() === targetTag.toLowerCase())) d.roleCount++      }
-    }
-    return Array.from(playerRoleData.entries())
-      .map(([name, d]) => ({
-        playerName: name,
-        profileIconId: d.profileIconId,
-        total: d.gameCount > 0 ? d.roleCount / d.gameCount : 0,
-        average: d.gameCount > 0 ? d.roleCount / d.gameCount : 0,
-        gameCount: d.gameCount,
-        winCount: d.winCount,
-        winRate: d.gameCount > 0 ? (d.winCount / d.gameCount) * 100 : 0,
-        raw: [
-          { label: getRoleName(targetTag) + '局数', value: d.roleCount },
-          { label: '总局数', value: d.gameCount },
-        ],
-      }))
-      .sort((a, b) => b.total - a.total)
-  }
-
-  const playerData = new Map<string, { totalDmg: number; totalGold: number; totalKills: number; totalDeaths: number; totalTeamDmg: number; totalDmgTaken: number; totalTeamDmgTaken: number; profileIconId: number; gameCount: number; winCount: number }>()
-
-  for (const g of games) {
-    const blueDmg = g.blue_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_to_champs, 0)
-    const redDmg = g.red_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_to_champs, 0)
-    const blueTaken = g.blue_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_taken, 0)
-    const redTaken = g.red_team.players.reduce((s: number, p: any) => s + p.stats.damage.total_taken, 0)
-    for (const p of g.blue_team.players) {
-      const name = p.summoner_name
-      if (!playerData.has(name)) {
-        playerData.set(name, { totalDmg: 0, totalGold: 0, totalKills: 0, totalDeaths: 0, totalTeamDmg: 0, totalDmgTaken: 0, totalTeamDmgTaken: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
-      }
-      const d = playerData.get(name)!
-      d.totalDmg += p.stats.damage.total_to_champs
-      d.totalGold += p.stats.economy.gold_earned
-      d.totalKills += p.stats.kills
-      d.totalDeaths += p.stats.deaths
-      d.totalTeamDmg += blueDmg
-      d.totalDmgTaken += p.stats.damage.total_taken
-      d.totalTeamDmgTaken += blueTaken
-      d.gameCount++
-      if (p.stats.win) d.winCount++
-    }
-    for (const p of g.red_team.players) {
-      const name = p.summoner_name
-      if (!playerData.has(name)) {
-        playerData.set(name, { totalDmg: 0, totalGold: 0, totalKills: 0, totalDeaths: 0, totalTeamDmg: 0, totalDmgTaken: 0, totalTeamDmgTaken: 0, profileIconId: p.profile_icon_id, gameCount: 0, winCount: 0 })
-      }
-      const d = playerData.get(name)!
-      d.totalDmg += p.stats.damage.total_to_champs
-      d.totalGold += p.stats.economy.gold_earned
-      d.totalKills += p.stats.kills
-      d.totalDeaths += p.stats.deaths
-      d.totalTeamDmg += redDmg
-      d.totalDmgTaken += p.stats.damage.total_taken
-      d.totalTeamDmgTaken += redTaken
-      d.gameCount++
-      if (p.stats.win) d.winCount++
-    }
-  }
-
-  return Array.from(playerData.entries())
-    .map(([name, d]) => {
-      let ratio: number
-      let raw: { label: string; value: number }[]
-      if (key === 'dmgPerGold') {
-        ratio = d.totalGold > 0 ? d.totalDmg / d.totalGold : 0
-        raw = [
-          { label: '总伤害', value: d.totalDmg },
-          { label: '总经济', value: d.totalGold },
-        ]
-      } else if (key === 'dmgPerKill') {
-        ratio = d.totalKills > 0 ? d.totalDmg / d.totalKills : 0
-        raw = [
-          { label: '总伤害', value: d.totalDmg },
-          { label: '总击杀', value: d.totalKills },
-        ]
-      } else if (key === 'dmgPerDeath') {
-        ratio = d.totalDeaths > 0 ? d.totalDmg / d.totalDeaths : 0
-        raw = [
-          { label: '总伤害', value: d.totalDmg },
-          { label: '总死亡', value: d.totalDeaths },
-        ]
-      } else if (key === 'dmgShare') {
-        ratio = d.totalTeamDmg > 0 ? d.totalDmg / d.totalTeamDmg : 0
-        raw = [
-          { label: '个人总伤害', value: d.totalDmg },
-          { label: '队伍总伤害', value: d.totalTeamDmg },
-        ]
-      } else if (key === 'dmgTakenShare') {
-        ratio = d.totalTeamDmgTaken > 0 ? d.totalDmgTaken / d.totalTeamDmgTaken : 0
-        raw = [
-          { label: '个人总承伤', value: d.totalDmgTaken },
-          { label: '队伍总承伤', value: d.totalTeamDmgTaken },
-        ]
-      } else {
-        ratio = 0
-        raw = []
-      }
-      return {
-        playerName: name,
-        profileIconId: d.profileIconId,
-        total: ratio,
-        average: ratio,
-        gameCount: d.gameCount,
-        winCount: d.winCount,
-        winRate: (d.winCount / d.gameCount) * 100,
-        raw,
-      }
-    })
-    .sort((a, b) => b.total - a.total)
+  return computeAdvancedMetricRanking(
+    games,
+    key,
+    id => ((gds.champions[id] as any)?.roles || (gds.champions[id] as any)?.tags || []) as string[],
+  )
 })
 
 /** 高阶指标最大值（用于横条可视化） */
@@ -773,27 +658,12 @@ function podiumWinRate(e: PodiumEntry): string {
 const globalItemFreq = computed(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
-
-  const countMap = new Map<number, number>()
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      for (const itemId of p.stats.items) {
-        if (isBuildItem(itemId)) {
-          countMap.set(itemId, (countMap.get(itemId) || 0) + 1)
-        }
-      }
-    }
-  }
-
-  return Array.from(countMap.entries())
-    .map(([itemId, count]) => ({
-      itemId,
-      count,
-      name: gds.items[itemId]?.name || `装备#${itemId}`,
-      iconPath: gds.items[itemId]?.iconPath || '',
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
+  return computeGlobalItemFreq(
+    games,
+    isBuildItem,
+    id => gds.items[id]?.name || `装备#${id}`,
+    id => gds.items[id]?.iconPath || '',
+  )
 })
 
 
@@ -801,102 +671,19 @@ const globalItemFreq = computed(() => {
 const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
-
-  const playerItemMap = new Map<string, Map<number, number>>()
-  const playerMeta = new Map<string, { profileIconId: number; totalGames: number }>()
-
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      const name = p.summoner_name
-      if (!playerItemMap.has(name)) {
-        playerItemMap.set(name, new Map())
-        playerMeta.set(name, { profileIconId: p.profile_icon_id, totalGames: 0 })
-      }
-      playerMeta.get(name)!.totalGames++
-      const itemCount = playerItemMap.get(name)!
-      for (const itemId of p.stats.items) {
-        if (isBuildItem(itemId)) {
-          itemCount.set(itemId, (itemCount.get(itemId) || 0) + 1)
-        }
-      }
-    }
-  }
-
-  return Array.from(playerItemMap.entries())
-    .map(([name, itemMap]) => {
-      let bestItemId = 0
-      let bestCount = 0
-      for (const [id, count] of itemMap) {
-        if (count > bestCount) {
-          bestCount = count
-          bestItemId = id
-        }
-      }
-      const meta = playerMeta.get(name)!
-      return {
-        playerName: name,
-        profileIconId: meta.profileIconId,
-        itemId: bestItemId,
-        itemName: gds.items[bestItemId]?.name || '',
-        iconPath: gds.items[bestItemId]?.iconPath || '',
-        count: bestCount,
-        totalGames: meta.totalGames,
-      }
-    })
-    .filter(p => p.itemId > 0)
+  return computePlayerFavoriteItems(
+    games,
+    isBuildItem,
+    id => gds.items[id]?.name || '',
+    id => gds.items[id]?.iconPath || '',
+  )
 })
 
 
 const playerChampionPools = computed<PlayerChampionPool[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
-
-  const playerChamps = new Map<string, Map<number, { count: number; wins: number }>>()
-  const playerMeta = new Map<string, { profileIconId: number; totalGames: number; winCount: number }>()
-
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      const name = p.summoner_name
-      if (!playerChamps.has(name)) {
-        playerChamps.set(name, new Map())
-        playerMeta.set(name, { profileIconId: p.profile_icon_id, totalGames: 0, winCount: 0 })
-      }
-      const meta = playerMeta.get(name)!
-      meta.totalGames++
-      if (p.stats.win) meta.winCount++
-      const champMap = playerChamps.get(name)!
-      const entry = champMap.get(p.champion_id) || { count: 0, wins: 0 }
-      entry.count++
-      if (p.stats.win) entry.wins++
-      champMap.set(p.champion_id, entry)
-    }
-  }
-
-  return Array.from(playerChamps.entries())
-    .map(([name, champMap]) => {
-      let bestId = 0
-      let bestCount = 0
-      let bestWins = 0
-      for (const [id, { count, wins }] of champMap) {
-        if (count > bestCount || (count === bestCount && id < bestId)) {
-          bestCount = count
-          bestWins = wins
-          bestId = id
-        }
-      }
-      const meta = playerMeta.get(name)!
-      return {
-        playerName: name,
-        profileIconId: meta.profileIconId,
-        uniqueChampions: champMap.size,
-        mostPlayedChampionId: bestId,
-        mostPlayedChampionCount: bestCount,
-        favChampWins: bestWins,
-        totalGames: meta.totalGames,
-        winCount: meta.winCount,
-      }
-    })
-    .sort((a, b) => b.uniqueChampions - a.uniqueChampions)
+  return computePlayerChampionPools(games)
 })
 
 
@@ -904,70 +691,26 @@ const playerChampionPools = computed<PlayerChampionPool[]>(() => {
 const globalChampionFreq = computed<GlobalChampFreq[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
-
-  const countMap = new Map<number, number>()
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      const cid = p.champion_id
-      if (cid && cid > 0) {
-        countMap.set(cid, (countMap.get(cid) || 0) + 1)
-      }
-    }
-  }
-
-  return Array.from(countMap.entries())
-    .map(([championId, count]) => ({
-      championId,
-      count,
-      name: gds.champions[championId]?.name || `英雄#${championId}`,
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
+  return computeGlobalChampionFreq(games, id => gds.champions[id]?.name || `英雄#${id}`)
 })
 
 /** 查询某个英雄被哪些玩家使用过（用于热门榜悬浮弹窗） */
 function getChampionUsers(championId: number): { playerName: string; count: number }[] {
   const games = analysisGames.value
   if (!games) return []
-  const playerCount = new Map<string, number>()
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      if (p.champion_id === championId) {
-        playerCount.set(p.summoner_name, (playerCount.get(p.summoner_name) || 0) + 1)
-      }
-    }
-  }
-  return Array.from(playerCount.entries())
-    .map(([playerName, count]) => ({ playerName, count }))
-    .sort((a, b) => b.count - a.count)
+  return getChampionUsersPure(games, championId)
 }
 
 /** 全局增幅频次（所有对局所有玩家，排除 0） */
 const globalAugmentFreq = computed(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
-
-  const countMap = new Map<number, number>()
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      for (const augId of p.stats.arena.player_augments) {
-        if (augId && augId > 0) {
-          countMap.set(augId, (countMap.get(augId) || 0) + 1)
-        }
-      }
-    }
-  }
-
-  return Array.from(countMap.entries())
-    .map(([id, count]) => ({
-      id,
-      count,
-      name: gds.augments[id]?.nameTRA || `海克斯#${id}`,
-      iconPath: gds.augments[id]?.augmentSmallIconPath || '',
-      rarity: gds.augments[id]?.rarity || '',
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
+  return computeGlobalAugmentFreq(
+    games,
+    id => gds.augments[id]?.nameTRA || `海克斯#${id}`,
+    id => gds.augments[id]?.augmentSmallIconPath || '',
+    id => gds.augments[id]?.rarity || '',
+  )
 })
 
 
@@ -975,97 +718,31 @@ const globalAugmentFreq = computed(() => {
 const playerFavoriteAugments = computed<PlayerFavAug[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
-
-  const playerAugMap = new Map<string, Map<number, number>>()
-  const playerMeta = new Map<string, { profileIconId: number; totalGames: number }>()
-
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      const name = p.summoner_name
-      if (!playerAugMap.has(name)) {
-        playerAugMap.set(name, new Map())
-        playerMeta.set(name, { profileIconId: p.profile_icon_id, totalGames: 0 })
-      }
-      playerMeta.get(name)!.totalGames++
-      const augCount = playerAugMap.get(name)!
-      for (const augId of p.stats.arena.player_augments) {
-        if (augId && augId > 0) {
-          augCount.set(augId, (augCount.get(augId) || 0) + 1)
-        }
-      }
-    }
-  }
-
-  return Array.from(playerAugMap.entries())
-    .map(([name, augMap]) => {
-      let bestId = 0
-      let bestCount = 0
-      for (const [id, count] of augMap) {
-        if (count > bestCount) {
-          bestCount = count
-          bestId = id
-        }
-      }
-      const meta = playerMeta.get(name)!
-      return {
-        playerName: name,
-        profileIconId: meta.profileIconId,
-        augmentId: bestId,
-        augmentName: gds.augments[bestId]?.nameTRA || '',
-        iconPath: gds.augments[bestId]?.augmentSmallIconPath || '',
-        rarity: gds.augments[bestId]?.rarity || '',
-        count: bestCount,
-        totalGames: meta.totalGames,
-      }
-    })
-    .filter(p => p.augmentId > 0)
+  return computePlayerFavoriteAugments(
+    games,
+    id => gds.augments[id]?.nameTRA || '',
+    id => gds.augments[id]?.augmentSmallIconPath || '',
+    id => gds.augments[id]?.rarity || '',
+  )
 })
 
 /** 按局内频率(count/totalGames)降序排列的玩家最爱海克斯 */
 const sortedPlayerFavoriteAugments = computed(() =>
-  [...playerFavoriteAugments.value].sort((a, b) => {
-    const rateA = a.count / a.totalGames
-    const rateB = b.count / b.totalGames
-    return rateB - rateA
-  })
+  sortPlayerAugmentsByFreq(playerFavoriteAugments.value)
 )
 
 /** 查询某个海克斯被哪些玩家选择过（用于热门榜悬浮弹窗） */
 function getAugmentUsers(augId: number): { playerName: string; count: number }[] {
   const games = analysisGames.value
   if (!games) return []
-  const playerCount = new Map<string, number>()
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      for (const id of p.stats.arena.player_augments) {
-        if (id === augId) {
-          playerCount.set(p.summoner_name, (playerCount.get(p.summoner_name) || 0) + 1)
-        }
-      }
-    }
-  }
-  return Array.from(playerCount.entries())
-    .map(([playerName, count]) => ({ playerName, count }))
-    .sort((a, b) => b.count - a.count)
+  return getAugmentUsersPure(games, augId)
 }
 
 /** 查询某件装备被哪些玩家购买过（用于热门榜悬浮弹窗） */
 function getItemUsers(itemId: number): { playerName: string; count: number }[] {
   const games = analysisGames.value
   if (!games) return []
-  const playerCount = new Map<string, number>()
-  for (const g of games) {
-    for (const p of [...g.blue_team.players, ...g.red_team.players]) {
-      for (const id of p.stats.items) {
-        if (id === itemId && isBuildItem(id)) {
-          playerCount.set(p.summoner_name, (playerCount.get(p.summoner_name) || 0) + 1)
-        }
-      }
-    }
-  }
-  return Array.from(playerCount.entries())
-    .map(([playerName, count]) => ({ playerName, count }))
-    .sort((a, b) => b.count - a.count)
+  return getItemUsersPure(games, itemId, isBuildItem)
 }
 
 /** 加载分析数据 */
