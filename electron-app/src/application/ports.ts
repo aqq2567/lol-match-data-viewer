@@ -5,7 +5,7 @@
  * MatchRepository 用业务语义命名（findXxx），不暴露底层是 LCU 还是 SGP。
  */
 
-import type { GameRecord, LcuConnectionInfo, LcuSummoner, MatchListData } from '@shared/types'
+import type { GameRecord, GameDataCache, LcuConnectionInfo, LcuSummoner, MatchListData } from '@shared/types'
 
 // ═══════════════════════════════════════════════════════════
 // MatchRepository — 对局数据访问
@@ -55,4 +55,82 @@ export function createMatchRepository(raw: {
 export interface SessionPort {
   checkConnection(): Promise<LcuConnectionInfo | null>
   getCurrentSummoner(): Promise<LcuSummoner>
+}
+
+export function createSessionRepository(raw: {
+  checkConnection(): Promise<LcuConnectionInfo | null>
+  getCurrentSummoner(): Promise<LcuSummoner>
+}): SessionPort {
+  return {
+    checkConnection: () => raw.checkConnection(),
+    getCurrentSummoner: () => raw.getCurrentSummoner(),
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// GameDataPort — 静态游戏数据加载
+// ═══════════════════════════════════════════════════════════
+
+export interface GameDataPort {
+  load(): Promise<GameDataCache>
+}
+
+export function createGameDataRepository(raw: {
+  fetchGameData(): Promise<GameDataCache>
+}): GameDataPort {
+  return {
+    load: () => raw.fetchGameData(),
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SettingsPort — 设置/桌面集成操作
+// ═══════════════════════════════════════════════════════════
+
+export interface SettingsPort {
+  load(): Promise<{ autoUpdate: boolean; deepseekApiKey: string }>
+  setAutoUpdate(enabled: boolean): Promise<void>
+  setDeepseekApiKey(key: string): Promise<void>
+  checkForUpdates(): Promise<void>
+  openLogsDir(): Promise<void>
+  openExternal(url: string): Promise<void>
+  quitAndInstall(): void
+  onUpdateStatus(callback: (status: unknown) => void): void
+}
+
+export function createSettingsRepository(raw: {
+  getSettings(): Promise<{ autoUpdate: boolean; deepseekApiKey: string }>
+  setSetting(key: string, value: unknown): Promise<void>
+  checkForUpdates(): Promise<void>
+  openLogsDir(): Promise<void>
+  openExternal(url: string): Promise<void>
+  quitAndInstall(): void
+  onUpdateStatus(callback: (status: unknown) => void): void
+}): SettingsPort {
+  return {
+    load: () => raw.getSettings(),
+    setAutoUpdate: (enabled) => raw.setSetting('autoUpdate', enabled),
+    setDeepseekApiKey: (key) => raw.setSetting('deepseekApiKey', key),
+    checkForUpdates: () => raw.checkForUpdates(),
+    openLogsDir: () => raw.openLogsDir(),
+    openExternal: (url) => raw.openExternal(url),
+    quitAndInstall: () => raw.quitAndInstall(),
+    onUpdateStatus: (cb) => raw.onUpdateStatus(cb),
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ChatPort — AI 对话
+// ═══════════════════════════════════════════════════════════
+
+export interface ChatPort {
+  sendMessage(messages: Array<{ role: string; content: string }>): Promise<{ status: string; content?: string; message?: string }>
+}
+
+export function createChatRepository(raw: {
+  chatWithAI(messages: Array<{ role: string; content: string }>): Promise<{ status: string; content?: string; message?: string }>
+}): ChatPort {
+  return {
+    sendMessage: (messages) => raw.chatWithAI(messages),
+  }
 }

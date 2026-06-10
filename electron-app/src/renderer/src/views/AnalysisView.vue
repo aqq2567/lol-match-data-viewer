@@ -1,12 +1,10 @@
 <template>
   <div class="analysis-page">
-    <!-- 加载中 -->
     <div v-if="loading" class="loading-state">
       <n-spin size="large" />
       <p>正在拉取对局详情并计算分析数据...</p>
     </div>
 
-    <!-- 无数据 -->
     <div v-else-if="!result" class="empty-state">
       <n-icon size="48" color="rgba(255,255,255,0.1)">
         <analytics-outline />
@@ -20,104 +18,31 @@
     </div>
 
     <template v-else>
-      <!-- 概览栏 -->
-      <div class="analysis-header">
-        <div class="header-left">
-          <n-button text @click="$router.push({ name: 'match-list' })" class="back-btn">
-            <template #icon><n-icon><arrow-back-outline /></n-icon></template>
-            返回列表
-          </n-button>
-          <div class="header-mode-name">{{ modeDisplayName }}</div>
-        </div>
-        <div class="header-stats">
-          <n-popover
-            v-if="!canFilterTeammates"
-            trigger="hover"
-            placement="bottom"
-            :show-arrow="false"
-          >
-            <template #trigger>
-              <div class="teammate-toggle disabled">
-                <span class="toggle-label">只看队友</span>
-                <n-switch :value="false" disabled size="small" />
-              </div>
-            </template>
-            <span class="toggle-tip">{{ disableTeammatesReason }}</span>
-          </n-popover>
-          <div v-else class="teammate-toggle">
-            <span class="toggle-label">只看队友</span>
-            <n-switch :value="onlyTeammates" size="small" @update:value="onlyTeammates = $event" />
-          </div>
-          <div class="stat-card">
-            <span class="stat-card-num">{{ result.gameCount }}</span>
-            <span class="stat-card-label">分析局数</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-card-num win-loss">{{ result.winCount }}<span class="win-letter">W</span> <span class="lose-letter">{{ result.loseCount }}L</span></span>
-            <span class="stat-card-label">胜负</span>
-          </div>
-          <div class="stat-card" :class="{ 'wr-good': result.winRate >= 50, 'wr-bad': result.winRate < 50 }">
-            <span class="stat-card-num">{{ result.winRate.toFixed(1) }}<span class="wr-pct">%</span></span>
-            <span class="stat-card-label">胜率</span>
-          </div>
-        </div>
-      </div>
+      <AnalysisHeader
+        :mode-display-name="modeDisplayName"
+        :can-filter-teammates="canFilterTeammates"
+        :disable-teammates-reason="disableTeammatesReason"
+        :only-teammates="onlyTeammates"
+        :game-count="result.gameCount"
+        :win-count="result.winCount"
+        :lose-count="result.loseCount"
+        :win-rate="result.winRate"
+        @update:only-teammates="onlyTeammates = $event"
+      />
 
-      <!-- 主体：左侧指标列表 + 右侧选中指标详情 -->
       <div class="analysis-body">
-        <!-- 左侧指标列表 -->
-        <div class="metric-sidebar">
-          <div class="sidebar-title">数据指标</div>
-          <!-- 基础数据：可折叠目录 -->
-          <div class="category-group">
-            <div class="category-header" @click="basicDataCollapsed = !basicDataCollapsed">
-              <n-icon size="16" class="category-arrow" :class="{ expanded: !basicDataCollapsed }">
-                <chevron-forward-outline />
-              </n-icon>
-              <span class="category-label">基础数据</span>
-              <span class="category-count">{{ basicMetrics.length }}</span>
-            </div>
-            <div v-show="!basicDataCollapsed" class="category-items">
-              <div
-                v-for="cat in basicMetrics"
-                :key="cat.key"
-                class="metric-item"
-                :class="{ active: selectedMetric === cat.key }"
-                @click="selectMetric(cat.key)"
-              >
-                <span class="metric-dot" :class="cat.colorClass"></span>
-                <span class="metric-label">{{ cat.label }}</span>
-              </div>
-            </div>
-          </div>
-          <!-- 高阶数据：可折叠目录（待扩展） -->
-          <div class="category-group">
-            <div class="category-header" @click="advancedDataCollapsed = !advancedDataCollapsed">
-              <n-icon size="16" class="category-arrow" :class="{ expanded: !advancedDataCollapsed }">
-                <chevron-forward-outline />
-              </n-icon>
-              <span class="category-label">高阶数据</span>
-              <span class="category-count">{{ advancedMetrics.length }}</span>
-            </div>
-            <div v-show="!advancedDataCollapsed" class="category-items">
-              <div
-                v-for="cat in advancedMetrics"
-                :key="cat.key"
-                class="metric-item"
-                :class="{ active: selectedMetric === cat.key }"
-                @click="selectMetric(cat.key)"
-              >
-                <span class="metric-dot" :class="cat.colorClass"></span>
-                <span class="metric-label">{{ cat.label }}</span>
-              </div>
-              <div v-if="advancedMetrics.length === 0" class="empty-category">暂无高阶指标</div>
-            </div>
-          </div>
-        </div>
+        <MetricSidebar
+          :basic-metrics="basicMetrics"
+          :advanced-metrics="advancedMetrics"
+          :selected-metric="selectedMetric"
+          :basic-data-collapsed="basicDataCollapsed"
+          :advanced-data-collapsed="advancedDataCollapsed"
+          @select-metric="selectMetric"
+          @update:basic-data-collapsed="basicDataCollapsed = $event"
+          @update:advanced-data-collapsed="advancedDataCollapsed = $event"
+        />
 
-        <!-- 右侧详情 -->
         <div class="metric-detail">
-          <!-- 未选择指标时的占位提示 -->
           <div v-if="!selectedMetric" class="no-selection">
             <n-icon size="48" color="rgba(255,255,255,0.08)">
               <analytics-outline />
@@ -127,296 +52,55 @@
           </div>
 
           <template v-else>
-            <!-- ═══ 海克斯分析：独立 UI ═══ -->
-            <template v-if="selectedMetric === 'augments'">
-              <div class="items-section">
-                <h4>热门海克斯 TOP 10</h4>
-                <div class="global-items-grid">
-                  <n-popover v-for="aug in globalAugmentFreq" :key="aug.id" trigger="hover" placement="top" :show-arrow="false">
-                    <template #trigger>
-                      <div class="global-item-card">
-                        <AugmentDisplay :augment-id="aug.id" :size="48" />
-                        <div class="item-info">
-                          <span class="item-name">{{ aug.name }}</span>
-                          <span class="item-freq">{{ aug.count }}次</span>
-                        </div>
-                      </div>
-                    </template>
-                    <div class="aug-popover-players">
-                      <div class="aug-pop-title">选择过此海克斯的玩家</div>
-                      <div v-for="u in getAugmentUsers(aug.id)" :key="u.playerName" class="aug-pop-row">
-                        <span class="aug-pop-name">{{ shortName(u.playerName) }}</span>
-                        <span class="aug-pop-count">{{ u.count }}次</span>
-                      </div>
-                    </div>
-                  </n-popover>
-                  <div v-if="globalAugmentFreq.length === 0" class="empty-hint">该模式无海克斯数据</div>
-                </div>
-              </div>
+            <AugmentDetail
+              v-if="selectedMetric === 'augments'"
+              :global-augment-freq="globalAugmentFreq"
+              :sorted-player-favorite-augments="sortedPlayerFavoriteAugments"
+              :get-augment-users="getAugmentUsers"
+            />
 
-              <div class="items-section">
-                <h4>各玩家最爱的海克斯</h4>
-                <div class="player-items-list">
-                  <div v-for="p in sortedPlayerFavoriteAugments" :key="p.playerName" class="player-item-row aug-row">
-                    <LcuImage :src="profileIconUrl(p.profileIconId)" :size="24" class="fav-avatar" />
-                    <span class="fav-player-name">{{ shortName(p.playerName) }}</span>
-                    <AugmentDisplay :augment-id="p.augmentId" :size="36" />
-                    <span class="fav-item-name aug-name">{{ p.augmentName }}</span>
-                    <span class="fav-count aug-freq">{{ p.count }}/{{ p.totalGames }}局</span>
-                  </div>
-                  <div v-if="playerFavoriteAugments.length === 0" class="empty-hint">该模式无海克斯数据</div>
-                </div>
-              </div>
-            </template>
+            <ItemDetail
+              v-else-if="selectedMetric === 'items'"
+              :global-item-freq="globalItemFreq"
+              :player-favorite-items="playerFavoriteItems"
+              :get-item-users="getItemUsers"
+            />
 
-            <!-- ═══ 装备分析：独立 UI ═══ -->
-            <template v-else-if="selectedMetric === 'items'">
-              <div class="items-section">
-                <h4>全局最爱出装 TOP 10</h4>
-                <div class="global-items-grid">
-                  <n-popover v-for="item in globalItemFreq" :key="item.itemId" trigger="hover" placement="top" :show-arrow="false">
-                    <template #trigger>
-                      <div class="global-item-card">
-                        <ItemDisplay :item-id="item.itemId" :size="48" />
-                        <div class="item-info">
-                          <span class="item-name">{{ item.name }}</span>
-                          <span class="item-freq">{{ item.count }}次</span>
-                        </div>
-                      </div>
-                    </template>
-                    <div class="aug-popover-players">
-                      <div class="aug-pop-title">购买过此装备的玩家</div>
-                      <div v-for="u in getItemUsers(item.itemId)" :key="u.playerName" class="aug-pop-row">
-                        <span class="aug-pop-name">{{ shortName(u.playerName) }}</span>
-                        <span class="aug-pop-count">{{ u.count }}次</span>
-                      </div>
-                    </div>
-                  </n-popover>
-                  <div v-if="globalItemFreq.length === 0" class="empty-hint">暂无装备数据</div>
-                </div>
-              </div>
+            <ChampionPoolDetail
+              v-else-if="selectedMetric === 'championPool'"
+              :global-champion-freq="globalChampionFreq"
+              :player-champion-pools="playerChampionPools"
+              :get-champion-users="getChampionUsers"
+            />
 
-              <div class="items-section">
-                <h4>各玩家最爱装备</h4>
-                <div class="player-items-list">
-                  <div v-for="p in playerFavoriteItems" :key="p.playerName" class="player-item-row aug-row">
-                    <LcuImage :src="profileIconUrl(p.profileIconId)" :size="24" class="fav-avatar" />
-                    <span class="fav-player-name">{{ shortName(p.playerName) }}</span>
-                    <ItemDisplay :item-id="p.itemId" :size="36" />
-                    <span class="fav-item-name aug-name">{{ p.itemName }}</span>
-                    <span class="fav-count aug-freq">{{ p.count }}/{{ p.totalGames }}局</span>
-                  </div>
-                  <div v-if="playerFavoriteItems.length === 0" class="empty-hint">暂无装备数据</div>
-                </div>
-              </div>
-            </template>
-
-            <!-- ═══ 英雄池分析：独立 UI ═══ -->
-            <template v-else-if="selectedMetric === 'championPool'">
-              <div class="items-section">
-                <h4>全局热门英雄 TOP 10</h4>
-                <div class="global-items-grid">
-                  <n-popover v-for="champ in globalChampionFreq" :key="champ.championId" trigger="hover" placement="top" :show-arrow="false">
-                    <template #trigger>
-                      <div class="global-item-card">
-                        <LcuImage :src="championIconUrl(champ.championId)" :size="48" />
-                        <div class="item-info">
-                          <span class="item-name">{{ champ.name }}</span>
-                          <span class="item-freq">{{ champ.count }}次</span>
-                        </div>
-                      </div>
-                    </template>
-                    <div class="aug-popover-players">
-                      <div class="aug-pop-title">使用过此英雄的玩家</div>
-                      <div v-for="u in getChampionUsers(champ.championId)" :key="u.playerName" class="aug-pop-row">
-                        <span class="aug-pop-name">{{ shortName(u.playerName) }}</span>
-                        <span class="aug-pop-count">{{ u.count }}次</span>
-                      </div>
-                    </div>
-                  </n-popover>
-                  <div v-if="globalChampionFreq.length === 0" class="empty-hint">无英雄数据</div>
-                </div>
-              </div>
-
-              <div class="items-section">
-                <h4>各玩家最常用英雄</h4>
-                <div class="player-items-list">
-                  <div v-for="p in playerChampionPools" :key="p.playerName" class="player-item-row champ-row">
-                    <LcuImage :src="profileIconUrl(p.profileIconId)" :size="28" class="fav-avatar" />
-                    <span class="fav-player-name champ-player">{{ shortName(p.playerName) }}</span>
-                    <LcuImage :src="championIconUrl(p.mostPlayedChampionId)" :size="44" />
-                    <div class="champ-mid-col">
-                      <span class="champ-name-main">{{ gds.champions[p.mostPlayedChampionId]?.name || '英雄#' + p.mostPlayedChampionId }}</span>
-                      <span class="champ-meta">
-                        {{ p.mostPlayedChampionCount }}/{{ p.totalGames }}局 ·
-                        选取率{{ rateDisplay(p.mostPlayedChampionCount / p.totalGames) }}
-                        · 胜率<span :class="p.favChampWins / p.mostPlayedChampionCount >= 0.5 ? 'win-green' : 'win-red'">{{ rateDisplay(p.favChampWins / p.mostPlayedChampionCount) }}</span>
-                      </span>
-                    </div>
-                    <div class="champ-pool-badge">
-                      <span class="pool-badge-num">{{ p.uniqueChampions }}</span>
-                      <span class="pool-badge-label">英雄池</span>
-                    </div>
-                  </div>
-                  <div v-if="playerChampionPools.length === 0" class="empty-hint">暂无英雄数据</div>
-                </div>
-              </div>
-            </template>
-
-            <!-- ═══ 高阶数据：首末名 + 排名表 ═══ -->
             <template v-else-if="isAdvancedMetric(selectedMetric)">
-              <!-- 首末名卡片 -->
-              <div class="top-panel">
-                <div class="advanced-best-worst" v-if="advancedMetricRanking.length">
-                  <div class="abw-card abw-best">
-                    <div class="abw-tag best">{{ advancedBestTitle }}</div>
-                    <LcuImage :src="profileIconUrl(advancedMetricRanking[0].profileIconId)" :size="60" class="abw-avatar" />
-                    <div class="abw-name">{{ shortName(advancedMetricRanking[0].playerName) }}</div>
-                    <div class="abw-value">{{ selectedCategory?.fmt(advancedMetricRanking[0].total) || '—' }}</div>
-                    <div class="abw-meta">{{ advancedMetricRanking[0].gameCount }}局 · 胜率{{ advancedMetricRanking[0].winRate.toFixed(0) }}%</div>
-                  </div>
-                  <div class="abw-divider"></div>
-                  <div class="abw-card abw-worst">
-                    <div class="abw-tag worst">{{ advancedWorstTitle }}</div>
-                    <LcuImage :src="profileIconUrl(advancedMetricRanking[advancedMetricRanking.length - 1].profileIconId)" :size="60" class="abw-avatar" />
-                    <div class="abw-name">{{ shortName(advancedMetricRanking[advancedMetricRanking.length - 1].playerName) }}</div>
-                    <div class="abw-value">{{ selectedCategory?.fmt(advancedMetricRanking[advancedMetricRanking.length - 1].total) || '—' }}</div>
-                    <div class="abw-meta">{{ advancedMetricRanking[advancedMetricRanking.length - 1].gameCount }}局 · 胜率{{ advancedMetricRanking[advancedMetricRanking.length - 1].winRate.toFixed(0) }}%</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 玩家排名表 -->
-              <div class="ranking-section">
-                <h4>{{ selectedCategory?.label }} — 玩家排名</h4>
-                <div class="custom-rank-table">
-                  <div class="rt-body" :style="{ maxHeight: tableMaxHeight + 'px' }">
-                    <div
-                      v-for="(row, idx) in advancedMetricRanking"
-                      :key="row.playerName"
-                      class="rt-row table-row-transition"
-                      :class="{ 'rt-row-top': idx === 0, 'rt-row-bottom': idx === advancedMetricRanking.length - 1 }"
-                    >
-                      <span class="rt-col-rank" :class="rankClass(idx)">{{ idx + 1 }}</span>
-                      <span class="rt-col-player">
-                        <LcuImage :src="profileIconUrl(row.profileIconId)" :size="32" class="rt-avatar" />
-                        <span class="rt-name">{{ shortName(row.playerName) }}</span>
-                      </span>
-                      <span class="rt-bar-track">
-                        <span class="rt-bar-fill" :style="{ width: barPercent(row.total, maxAdvMetricValue) }"></span>
-                        <span class="rt-bar-val">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
-                      </span>
-                      <span v-for="r in (row.raw || [])" :key="r.label" class="rt-raw-tag"><b>{{ fmtNum(r.value) }}</b> {{ r.label }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <AdvancedDetail
+                :ranking="advancedMetricRanking"
+                :max-value="maxAdvMetricValue"
+                :best-title="advancedBestTitle"
+                :worst-title="advancedWorstTitle"
+                :label="selectedCategory?.label || ''"
+                :fmt="selectedCategory?.fmt || ((v: number) => String(v))"
+                :table-max-height="tableMaxHeight"
+              />
             </template>
 
-            <!-- ═══ 普通指标：领奖台 + 排名表 ═══ -->
             <template v-else>
-            <!-- 领奖台 -->
-            <div class="top-panel">
-              <div class="podium-section" v-if="metricPodium.length">
-                <h4>{{ selectedCategory?.label }} — 领奖台</h4>
-                <div class="podium-row">
-                  <!-- 第 2 名 -->
-                  <n-popover v-if="metricPodium[1]" trigger="hover" placement="top" :show-arrow="false">
-                    <template #trigger>
-                      <div class="podium-spot spot-2 podium-spot-enter">
-                        <div class="spot-avatar-ring silver">
-                          <LcuImage :src="profileIconUrl(metricPodium[1].profileIconId)" :size="52" class="spot-avatar" />
-                        </div>
-                        <div class="spot-name">{{ shortName(metricPodium[1].playerName) }}</div>
-                        <div class="spot-value">{{ metricPodium[1].displayValue }}</div>
-                        <div class="spot-stand stand-silver"><span class="spot-rank">2</span></div>
-                      </div>
-                    </template>
-                    <div class="popover-stats">
-                      <div class="pop-item">局数 <b>{{ metricPodium[1].gameCount }}</b></div>
-                      <div class="pop-item">胜率 <b>{{ podiumWinRate(metricPodium[1]) }}%</b></div>
-                      <div class="pop-item">KDA <b>{{ metricPodium[1].avgKda }}</b></div>
-                      <div class="pop-item">击杀/死亡/助攻 <b>{{ metricPodium[1].totalKills }}/{{ metricPodium[1].totalDeaths }}/{{ metricPodium[1].totalAssists }}</b></div>
-                    </div>
-                  </n-popover>
-                  <!-- 第 1 名 -->
-                  <n-popover v-if="metricPodium[0]" trigger="hover" placement="top" :show-arrow="false">
-                    <template #trigger>
-                      <div class="podium-spot spot-1 podium-spot-enter">
-                        <div class="first-crown-wrapper">
-                          <div class="crown-glow"></div>
-                          <n-icon size="28" color="#e8a840" class="crown-icon">
-                            <trophy-outline />
-                          </n-icon>
-                          <div v-if="firstPlaceTitle" class="first-title-badge">{{ firstPlaceTitle }}</div>
-                        </div>
-                        <div class="spot-avatar-ring gold">
-                          <LcuImage :src="profileIconUrl(metricPodium[0].profileIconId)" :size="68" class="spot-avatar" />
-                        </div>
-                        <div class="spot-name">{{ shortName(metricPodium[0].playerName) }}</div>
-                        <div class="spot-value spot-value-lg">{{ metricPodium[0].displayValue }}</div>
-                        <div class="spot-stand stand-gold"><span class="spot-rank">1</span></div>
-                      </div>
-                    </template>
-                    <div class="popover-stats">
-                      <div class="pop-item">局数 <b>{{ metricPodium[0].gameCount }}</b></div>
-                      <div class="pop-item">胜率 <b>{{ podiumWinRate(metricPodium[0]) }}%</b></div>
-                      <div class="pop-item">KDA <b>{{ metricPodium[0].avgKda }}</b></div>
-                      <div class="pop-item">击杀/死亡/助攻 <b>{{ metricPodium[0].totalKills }}/{{ metricPodium[0].totalDeaths }}/{{ metricPodium[0].totalAssists }}</b></div>
-                    </div>
-                  </n-popover>
-                  <!-- 第 3 名 -->
-                  <n-popover v-if="metricPodium[2]" trigger="hover" placement="top" :show-arrow="false">
-                    <template #trigger>
-                      <div class="podium-spot spot-3 podium-spot-enter">
-                        <div class="spot-avatar-ring bronze">
-                          <LcuImage :src="profileIconUrl(metricPodium[2].profileIconId)" :size="52" class="spot-avatar" />
-                        </div>
-                        <div class="spot-name">{{ shortName(metricPodium[2].playerName) }}</div>
-                        <div class="spot-value">{{ metricPodium[2].displayValue }}</div>
-                        <div class="spot-stand stand-bronze"><span class="spot-rank">3</span></div>
-                      </div>
-                    </template>
-                    <div class="popover-stats">
-                      <div class="pop-item">局数 <b>{{ metricPodium[2].gameCount }}</b></div>
-                      <div class="pop-item">胜率 <b>{{ podiumWinRate(metricPodium[2]) }}%</b></div>
-                      <div class="pop-item">KDA <b>{{ metricPodium[2].avgKda }}</b></div>
-                      <div class="pop-item">击杀/死亡/助攻 <b>{{ metricPodium[2].totalKills }}/{{ metricPodium[2].totalDeaths }}/{{ metricPodium[2].totalAssists }}</b></div>
-                    </div>
-                  </n-popover>
-                </div>
-              </div>
-            </div>
-
-            <!-- 玩家排名表 -->
-            <div class="ranking-section">
-              <h4>{{ selectedCategory?.label }} — 玩家排名</h4>
-              <div class="custom-rank-table">
-                <div class="rt-body" :style="{ maxHeight: tableMaxHeight + 'px' }">
-                  <div
-                    v-for="(row, idx) in metricRanking"
-                    :key="row.playerName"
-                    class="rt-row table-row-transition"
-                    :class="{ 'rt-row-top': idx === 0 }"
-                  >
-                    <span class="rt-col-rank" :class="rankClass(idx)">{{ idx + 1 }}</span>
-                    <span class="rt-col-player">
-                      <LcuImage :src="profileIconUrl(row.profileIconId)" :size="32" class="rt-avatar" />
-                      <span class="rt-name">{{ shortName(row.playerName) }}</span>
-                    </span>
-                    <span class="rt-bar-track">
-                      <span class="rt-bar-fill" :style="{ width: barPercent(row.total, maxMetricValue.total) }"></span>
-                      <span class="rt-bar-val">{{ selectedCategory?.fmt(row.total) || '—' }}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              <PodiumDisplay
+                :title="(selectedCategory?.label || '') + ' — 领奖台'"
+                :podium="metricPodium"
+                :first-place-title="firstPlaceTitle"
+              />
+              <RankingTable
+                :title="(selectedCategory?.label || '') + ' — 玩家排名'"
+                :ranking="metricRanking"
+                :max-value="maxMetricValue.total"
+                :fmt="selectedCategory?.fmt || ((v: number) => String(v))"
+                :table-max-height="tableMaxHeight"
+              />
             </template>
 
-            <!-- ═══ AI 对话 ═══ -->
             <ChatPanel :games="analysisGames" />
-
           </template>
         </div>
       </div>
@@ -427,33 +111,23 @@
 <script setup lang="ts">
 import { computed, onActivated, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  NButton,
-  NIcon,
-  NPopover,
-  NSpin,
-  NSwitch,
-  useMessage,
-} from 'naive-ui'
-import {
-  AnalyticsOutline,
-  ArrowBackOutline,
-  ListOutline,
-  ChevronForwardOutline,
-  TrophyOutline,
-} from '@vicons/ionicons5'
+import { NButton, NIcon, NSpin, useMessage } from 'naive-ui'
+import { AnalyticsOutline, ListOutline } from '@vicons/ionicons5'
 import type { GameRecord, AnalysisResult } from '@shared/types'
-import LcuImage from '@/components/widgets/LcuImage.vue'
-import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
-import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
 import ChatPanel from '@/components/chat/ChatPanel.vue'
-import { isBuildItem } from '@shared/utils/mappings'
+import AnalysisHeader from '@/components/analysis/AnalysisHeader.vue'
+import MetricSidebar from '@/components/analysis/MetricSidebar.vue'
+import PodiumDisplay from '@/components/analysis/PodiumDisplay.vue'
+import RankingTable from '@/components/analysis/RankingTable.vue'
+import AdvancedDetail from '@/components/analysis/AdvancedDetail.vue'
+import AugmentDetail from '@/components/analysis/AugmentDetail.vue'
+import ItemDetail from '@/components/analysis/ItemDetail.vue'
+import ChampionPoolDetail from '@/components/analysis/ChampionPoolDetail.vue'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
 import { useGameDataStore } from '@/stores/game-data'
-import { shortName } from '@/utils/display'
-import { championIcon as championIconUrl, profileIcon as profileIconUrl } from '@/utils/lcu-images'
+import { useAnalysisBridge } from '@/stores/analysis-bridge'
 import { rateDisplay } from '@/utils/format'
-import { formatCompactNumber as fmtNum } from '@shared/utils/mappings'
+import { computeTableMaxHeight } from '@/utils/display'
 import type {
   PodiumEntry,
   MetricRankEntry,
@@ -464,96 +138,80 @@ import type {
   GlobalAugmentFreq,
   PlayerFavAug,
 } from '@domain/analysis/types'
-import { buildPlayerAggMap, computeMetricRanking, computePodium, computePodiumWinRate as podiumWinRate } from '@domain/analysis/aggregation'
-import { isPlayerInAllGames, filterToPlayerTeam } from '@domain/analysis/match-stats'
-import { analyzeSelectedGames } from '@application/analysis-service'
-import { initializeSession } from '@application/connection-service'
-import { createMatchRepository } from '@application/ports'
-import { computeAdvancedMetricRanking } from '@domain/analysis/advanced-metrics'
 import {
-  computeGlobalChampionFreq,
-  computeGlobalItemFreq,
-  computeGlobalAugmentFreq,
-  computePlayerChampionPools,
-  computePlayerFavoriteItems,
-  computePlayerFavoriteAugments,
+  analyzeSelectedGames,
+  buildPlayerAggMap, computeMetricRanking, computePodium,
+  computeAdvancedMetricRanking,
+  isPlayerInAllGames, filterToPlayerTeam,
+  computeGlobalChampionFreq, computeGlobalItemFreq, computeGlobalAugmentFreq,
+  computePlayerChampionPools, computePlayerFavoriteItems, computePlayerFavoriteAugments,
   sortPlayerAugmentsByFreq,
   getChampionUsers as getChampionUsersPure,
   getItemUsers as getItemUsersPure,
   getAugmentUsers as getAugmentUsersPure,
-} from '@domain/analysis/frequency'
+} from '@application/analysis-service'
+import { initializeSession } from '@application/connection-service'
+import { createMatchRepository, createSessionRepository } from '@application/ports'
+import { isBuildItem, getRoleName } from '@shared/utils/mappings'
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 const router = useRouter()
 const message = useMessage()
 const gds = useGameDataStore()
+const bridge = useAnalysisBridge()
 
 const loading = ref(false)
 const result = ref<AnalysisResult | null>(null)
-/** 原始对局数据（来自 LCU），仅 loadAnalysis 写入 */
 const _allGames = ref<GameRecord[]>([])
 
-/** 当前登录玩家的 PUUID */
 const currentPuuid = ref('')
-/** 只看队友开关 */
 const onlyTeammates = ref(false)
 
-/** 检查是否所有分析对局都包含当前登录玩家（否则无法使用只看队友） */
 const canFilterTeammates = computed(() =>
   isPlayerInAllGames(_allGames.value, currentPuuid.value),
 )
 
-/** 禁止切换的原因文本 */
 const disableTeammatesReason = computed(() => {
   if (!currentPuuid.value) return '未检测到登录玩家'
   if (_allGames.value.length === 0) return '无对局数据'
   return '部分对局不属于当前登录玩家，无法使用只看队友'
 })
 
-/** 响应式对局数据：根据只看队友开关自动过滤，供所有 computed 属性依赖追踪 */
 const analysisGames = computed<GameRecord[]>(() => {
   if (!onlyTeammates.value || !currentPuuid.value || !canFilterTeammates.value) return _allGames.value
   return filterToPlayerTeam(_allGames.value, currentPuuid.value)
 })
 
-/** 当前选中的指标 key */
 const selectedMetric = ref<string | null>(null)
-/** 当前分析的游戏模式（从加载的对局中检测） */
 const currentMode = ref<string>('')
 
 const modeDisplayName = computed(() => {
   if (!currentMode.value) return ''
   return getModeAnalysisConfig(currentMode.value).displayName || currentMode.value
 })
-/** 基础数据目录是否折叠 */
+
 const basicDataCollapsed = ref(false)
-/** 高阶数据目录是否折叠 */
 const advancedDataCollapsed = ref(true)
 
 function selectMetric(key: string) {
   selectedMetric.value = selectedMetric.value === key ? null : key
 }
 
-
-/** 当前模式的基础指标 */
 const basicMetrics = computed<MetricDef[]>(() => {
   if (!currentMode.value) return []
   return getModeAnalysisConfig(currentMode.value).basicMetrics
 })
 
-/** 当前模式的高阶指标 */
 const advancedMetrics = computed<MetricDef[]>(() => {
   if (!currentMode.value) return []
   return getModeAnalysisConfig(currentMode.value).advancedMetrics
 })
 
-/** 判断是否为高阶指标 */
 function isAdvancedMetric(key: string | null): boolean {
   return advancedMetrics.value.some((c) => c.key === key)
-}
-
-/** 排名条宽度百分比（保留一位小数） */
-function barPercent(value: number, max: number): string {
-  return max > 0 ? (value / max * 100).toFixed(1) + '%' : '0%'
 }
 
 const selectedCategory = computed(() =>
@@ -562,16 +220,12 @@ const selectedCategory = computed(() =>
   || null
 )
 
-
-
-/** 当前选中指标的玩家排名（按总计降序） */
 const metricRanking = computed<MetricRankEntry[]>(() => {
   const games = analysisGames.value
   if (!games || !selectedCategory.value) return []
   return computeMetricRanking(games, selectedCategory.value.getter)
 })
 
-/** 基础指标最大值（用于横条可视化） */
 const maxMetricValue = computed(() => {
   if (metricRanking.value.length === 0) return { total: 1, average: 1 }
   return {
@@ -580,7 +234,6 @@ const maxMetricValue = computed(() => {
   }
 })
 
-/** 高阶指标排名（按总量比值聚合，而非单局均值简单平均） */
 const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   const games = analysisGames.value
   if (!games || !selectedCategory.value || !isAdvancedMetric(selectedMetric.value)) return []
@@ -589,28 +242,22 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
   return computeAdvancedMetricRanking(
     games,
     key,
-    id => ((gds.champions[id] as any)?.roles || (gds.champions[id] as any)?.tags || []) as string[],
+    id => gds.champions[id]?.roles || [],
+    getRoleName,
   )
 })
 
-/** 高阶指标最大值（用于横条可视化） */
 const maxAdvMetricValue = computed(() => {
   if (advancedMetricRanking.value.length === 0) return 1
   return Math.max(...advancedMetricRanking.value.map(r => r.total), 1)
 })
 
-/**
- * 第 1 名领奖台自定义称号映射（从模式配置读取）
- */
 const firstPlaceTitle = computed(() => {
   if (!selectedMetric.value || !currentMode.value) return ''
   const cfg = getModeAnalysisConfig(currentMode.value)
   return cfg.podiumTitles[selectedMetric.value] || ''
 })
 
-/**
- * 高阶数据首末名标签映射（从模式配置读取）
- */
 const advancedBestTitle = computed(() => {
   if (!selectedMetric.value || !currentMode.value) return '最佳'
   const cfg = getModeAnalysisConfig(currentMode.value)
@@ -623,15 +270,13 @@ const advancedWorstTitle = computed(() => {
   return cfg.advancedWorstTitles[selectedMetric.value] || '最末'
 })
 
-/** 排名表最大高度：约10行 */
 const tableMaxHeight = computed(() => {
   const count = selectedMetric.value && isAdvancedMetric(selectedMetric.value)
     ? advancedMetricRanking.value.length
     : metricRanking.value.length
-  return Math.min(Math.max(count, 1), 10) * 40 + 36
+  return computeTableMaxHeight(count)
 })
 
-/** 当前选中指标的领奖台 TOP 3 */
 const metricPodium = computed<PodiumEntry[]>(() => {
   const games = analysisGames.value
   if (!games || !selectedCategory.value) return []
@@ -640,8 +285,6 @@ const metricPodium = computed<PodiumEntry[]>(() => {
   return computePodium(games, aggMap, cat.getter, cat.fmt)
 })
 
-
-/** 全局装备频次 TOP 10 */
 const globalItemFreq = computed(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
@@ -653,8 +296,6 @@ const globalItemFreq = computed(() => {
   )
 })
 
-
-/** 每个玩家最爱装备（取该玩家出现次数最多的装备） */
 const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
@@ -666,29 +307,24 @@ const playerFavoriteItems = computed<PlayerFavItem[]>(() => {
   )
 })
 
-
 const playerChampionPools = computed<PlayerChampionPool[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
   return computePlayerChampionPools(games)
 })
 
-
-/** 全局英雄选取频次 TOP 10（所有对局所有玩家） */
 const globalChampionFreq = computed<GlobalChampFreq[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
   return computeGlobalChampionFreq(games, id => gds.champions[id]?.name || `英雄#${id}`)
 })
 
-/** 查询某个英雄被哪些玩家使用过（用于热门榜悬浮弹窗） */
 function getChampionUsers(championId: number): { playerName: string; count: number }[] {
   const games = analysisGames.value
   if (!games) return []
   return getChampionUsersPure(games, championId)
 }
 
-/** 全局增幅频次（所有对局所有玩家，排除 0） */
 const globalAugmentFreq = computed(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
@@ -700,8 +336,6 @@ const globalAugmentFreq = computed(() => {
   )
 })
 
-
-/** 每个玩家最常选的增幅 */
 const playerFavoriteAugments = computed<PlayerFavAug[]>(() => {
   const games = analysisGames.value
   if (!games || games.length === 0) return []
@@ -713,36 +347,25 @@ const playerFavoriteAugments = computed<PlayerFavAug[]>(() => {
   )
 })
 
-/** 按局内频率(count/totalGames)降序排列的玩家最爱海克斯 */
 const sortedPlayerFavoriteAugments = computed(() =>
   sortPlayerAugmentsByFreq(playerFavoriteAugments.value)
 )
 
-/** 查询某个海克斯被哪些玩家选择过（用于热门榜悬浮弹窗） */
 function getAugmentUsers(augId: number): { playerName: string; count: number }[] {
   const games = analysisGames.value
   if (!games) return []
   return getAugmentUsersPure(games, augId)
 }
 
-/** 查询某件装备被哪些玩家购买过（用于热门榜悬浮弹窗） */
 function getItemUsers(itemId: number): { playerName: string; count: number }[] {
   const games = analysisGames.value
   if (!games) return []
   return getItemUsersPure(games, itemId, isBuildItem)
 }
 
-/** 加载分析数据 */
 async function loadAnalysis() {
-  const shouldRecalculate = sessionStorage.getItem('analysisShouldRecalculate') === 'true'
-  sessionStorage.removeItem('analysisShouldRecalculate')
-  if (!shouldRecalculate) return
-
-  const rawIds = sessionStorage.getItem('analysisGameIds')
-  if (!rawIds) return
-
-  const gameIds: number[] = JSON.parse(rawIds)
-  if (!gameIds.length) return
+  const gameIds = bridge.consume()
+  if (!gameIds || !gameIds.length) return
 
   console.log(`[LCU:ANALYSIS] 开始分析: ${gameIds.length} 场对局, ids=${gameIds.join(',')}`)
   selectedMetric.value = null
@@ -759,25 +382,16 @@ async function loadAnalysis() {
 
     result.value = report.result
     _allGames.value = report.games
-  } catch (e: any) {
-    message.error(`分析失败: ${e.message || e}`)
+  } catch (e: unknown) {
+    message.error(`分析失败: ${errMsg(e)}`)
   } finally {
     loading.value = false
   }
 }
 
-function rankClass(idx: number): string {
-  if (idx === 0) return 'rank-gold'
-  if (idx === 1) return 'rank-silver'
-  if (idx === 2) return 'rank-bronze'
-  return ''
-}
-
-
 onActivated(async () => {
-  // 获取当前登录玩家的 PUUID（用于只看队友过滤）
   if (!currentPuuid.value) {
-    const { summoner } = await initializeSession(window.lcuApi)
+    const { summoner } = await initializeSession(createSessionRepository(window.lcuApi))
     if (summoner) currentPuuid.value = summoner.puuid
   }
   await loadAnalysis()
@@ -807,274 +421,12 @@ onActivated(async () => {
   color: var(--text-secondary);
 }
 
-/* ── 概览栏 ── */
-.analysis-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: var(--glass-bg);
-  border-bottom: 1px solid var(--glass-border);
-  flex-shrink: 0;
-  backdrop-filter: blur(8px);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.header-mode-name {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-}
-
-.header-stats {
-  display: flex;
-  gap: 12px;
-}
-
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 10px 20px;
-  min-width: 90px;
-}
-
-.stat-card-num {
-  font-size: var(--text-xl);
-  font-weight: 800;
-  color: var(--text-primary);
-  font-family: var(--font-number);
-  letter-spacing: -0.02em;
-}
-
-.stat-card-num .wr-pct {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  margin-left: 1px;
-  color: var(--text-secondary);
-}
-
-.stat-card-label {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.stat-card .win-loss {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.stat-card .win-letter {
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: var(--win-color);
-}
-
-.stat-card .lose-letter {
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: var(--lose-color);
-}
-
-.stat-card.wr-good {
-  border-color: rgba(46, 168, 108, 0.25);
-  box-shadow: 0 0 12px rgba(46, 168, 108, 0.08);
-}
-
-.stat-card.wr-good .stat-card-num {
-  color: var(--accent-green);
-}
-
-.stat-card.wr-bad {
-  border-color: rgba(232, 64, 87, 0.25);
-  box-shadow: 0 0 12px rgba(232, 64, 87, 0.08);
-}
-
-.stat-card.wr-bad .stat-card-num {
-  color: var(--accent-red);
-}
-
-.back-btn {
-  font-size: var(--text-sm);
-}
-
-/* ── 只看队友开关 ── */
-.teammate-toggle {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  padding: 4px 12px;
-  border-radius: var(--radius-md);
-  transition: background 0.15s;
-}
-
-.teammate-toggle:hover {
-  background: var(--bg-hover);
-}
-
-.teammate-toggle.disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.toggle-label {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  letter-spacing: 0.05em;
-}
-
-
-/* ── 主体双栏布局 ── */
 .analysis-body {
   flex: 1;
   display: flex;
   overflow: hidden;
 }
 
-/* ── 左侧指标列表 ── */
-.metric-sidebar {
-  width: 200px;
-  flex-shrink: 0;
-  background: var(--header-bg);
-  border-right: 1px solid var(--border-color);
-  overflow-y: auto;
-  padding: 10px 0;
-}
-
-.sidebar-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-tertiary);
-  padding: 8px 16px 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.metric-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  border-left: 2px solid transparent;
-  margin: 0 8px;
-  border-radius: var(--radius-sm);
-}
-
-.metric-item:hover {
-  background: var(--bg-hover);
-}
-
-.metric-item.active {
-  background: var(--glass-bg);
-  border-left-color: var(--text-primary);
-  box-shadow: inset 0 0 0 1px var(--glass-border);
-}
-
-.metric-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.metric-dot.cat-red    { background: #e84057; box-shadow: 0 0 6px rgba(232, 64, 87, 0.4); }
-.metric-dot.cat-orange { background: #f0a040; box-shadow: 0 0 6px rgba(240, 160, 64, 0.4); }
-.metric-dot.cat-green  { background: #2ea86c; box-shadow: 0 0 6px rgba(46, 168, 108, 0.4); }
-.metric-dot.cat-gold   { background: #c8aa2e; box-shadow: 0 0 6px rgba(200, 170, 46, 0.4); }
-.metric-dot.cat-blue   { background: #3c8cd0; box-shadow: 0 0 6px rgba(60, 140, 208, 0.4); }
-.metric-dot.cat-purple { background: #8b5cf6; box-shadow: 0 0 6px rgba(139, 92, 246, 0.4); }
-
-.metric-label {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-}
-
-.metric-item.active .metric-label {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* ── 可折叠目录 ── */
-.category-group {
-  border-bottom: 1px solid var(--glass-border);
-  padding-bottom: 6px;
-  margin-bottom: 6px;
-}
-
-.category-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px 10px 12px;
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s;
-}
-
-.category-header:hover {
-  background: var(--bg-hover);
-}
-
-.category-arrow {
-  color: var(--text-tertiary);
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.category-arrow.expanded {
-  transform: rotate(90deg);
-}
-
-.category-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  flex: 1;
-}
-
-.category-count {
-  font-size: 10px;
-  color: var(--text-muted);
-  background: var(--glass-bg);
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-family: var(--font-number);
-}
-
-.category-items .metric-item {
-  padding-left: 30px;
-  margin-right: 4px;
-}
-
-/* ── 空目录占位 ── */
-.empty-category {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 12px 16px 12px 28px;
-  text-align: center;
-}
-
-/* ── 右侧详情 ── */
 .metric-detail {
   flex: 1;
   overflow: hidden;
@@ -1101,725 +453,5 @@ onActivated(async () => {
 .no-selection .sub {
   font-size: 12px;
   color: var(--text-muted);
-}
-
-/* ── 上方面板：领奖台 / 首末名 (~1/3) ── */
-.top-panel {
-  flex: 0 0 auto;
-}
-
-/* ── 领奖台 ── */
-.podium-section h4,
-.ranking-section h4 {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-  letter-spacing: 0.02em;
-}
-
-.podium-section {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: 16px 20px;
-  box-shadow: var(--card-shadow);
-}
-
-.podium-row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 36px;
-  padding: 8px 0;
-}
-
-.podium-spot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 170px;
-}
-
-/* 头像光环 */
-.spot-avatar-ring {
-  border-radius: 50%;
-  padding: 3px;
-  flex-shrink: 0;
-}
-
-.spot-avatar-ring.gold {
-  box-shadow: 0 0 0 3px rgba(232, 168, 64, 0.5), 0 0 24px rgba(232, 168, 64, 0.3);
-}
-
-.spot-avatar-ring.silver {
-  box-shadow: 0 0 0 3px rgba(160, 168, 176, 0.5), 0 0 16px rgba(160, 168, 176, 0.2);
-}
-
-.spot-avatar-ring.bronze {
-  box-shadow: 0 0 0 3px rgba(176, 136, 96, 0.5), 0 0 16px rgba(176, 136, 96, 0.2);
-}
-
-.spot-avatar {
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  flex-shrink: 0;
-}
-
-.spot-name {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-  text-align: center;
-}
-
-.spot-value {
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  color: var(--text-primary);
-  font-family: var(--font-number);
-  letter-spacing: -0.02em;
-  text-align: center;
-}
-
-.spot-value-lg {
-  font-size: var(--text-3xl);
-}
-
-.spot-stand {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px 3px 0 0;
-  position: relative;
-}
-
-.spot-1 .spot-stand { height: 56px; }
-.spot-2 .spot-stand { height: 44px; }
-.spot-3 .spot-stand { height: 34px; }
-
-.stand-gold {
-  background: linear-gradient(180deg, #e8a840 0%, #c88a20 50%, #a06810 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
-}
-
-.stand-silver {
-  background: linear-gradient(180deg, #b0b8c0 0%, #889098 50%, #606870 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
-}
-
-.stand-bronze {
-  background: linear-gradient(180deg, #c09870 0%, #987050 50%, #705030 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
-}
-
-.spot-rank {
-  font-size: 22px;
-  font-weight: 800;
-  color: rgba(0, 0, 0, 0.4);
-  text-shadow: 0 1px 0 rgba(255,255,255,0.1);
-}
-
-/* ── 第 1 名皇冠 + 称号 ── */
-.first-crown-wrapper {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: -12px;
-  z-index: 1;
-}
-
-.crown-glow {
-  position: absolute;
-  top: -16px;
-  width: 100px;
-  height: 50px;
-  background: radial-gradient(ellipse at center, rgba(232, 168, 64, 0.35) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.crown-icon {
-  filter: drop-shadow(0 2px 6px rgba(232, 168, 64, 0.6));
-}
-
-.first-title-badge {
-  font-size: 13px;
-  font-weight: 800;
-  color: #1a1a2e;
-  background: linear-gradient(135deg, #e8a840 0%, #f0cc60 50%, #e8a840 100%);
-  padding: 3px 14px;
-  border-radius: 12px;
-  letter-spacing: 1px;
-  margin-top: -2px;
-  white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(232, 168, 64, 0.4);
-}
-
-/* ── 排名表 (~2/3) ── */
-.ranking-section {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ranking-section h4::before {
-  content: '';
-  display: inline-block;
-  width: 3px;
-  height: 14px;
-  background: var(--text-secondary);
-  border-radius: 2px;
-  margin-right: 8px;
-  vertical-align: middle;
-  margin-top: -1px;
-}
-
-/* ── 自定义排名表（LOL 结算界面横条风格） ── */
-.custom-rank-table {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  background: var(--glass-bg);
-  overflow: hidden;
-  box-shadow: var(--card-shadow);
-}
-
-.rt-body {
-  overflow-y: auto;
-  padding: 8px 0;
-}
-
-.rt-row {
-  display: flex;
-  align-items: center;
-  padding: 6px 16px;
-  gap: 12px;
-  transition: background 0.15s ease;
-}
-
-.rt-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.rt-row.rt-row-top {
-  background: rgba(232, 168, 64, 0.05);
-}
-
-.rt-row.rt-row-bottom {
-  background: rgba(232, 64, 87, 0.03);
-}
-
-/* 排名 */
-.rt-col-rank {
-  width: 28px;
-  flex-shrink: 0;
-  text-align: center;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-tertiary);
-  font-family: var(--font-number);
-}
-
-.rt-col-rank.rank-gold {
-  color: var(--accent-gold);
-  font-weight: 800;
-  text-shadow: 0 0 8px rgba(232, 168, 64, 0.3);
-}
-
-.rt-col-rank.rank-silver {
-  color: #a0a8b0;
-  font-weight: 700;
-}
-
-.rt-col-rank.rank-bronze {
-  color: #b08860;
-  font-weight: 700;
-}
-
-/* 玩家 */
-.rt-col-player {
-  width: 140px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rt-avatar {
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: rgba(255,255,255,0.05);
-}
-
-.rt-name {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── 横条 ── */
-.rt-bar-track {
-  flex: 1;
-  height: 26px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.rt-bar-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, rgba(96, 160, 220, 0.4), rgba(96, 160, 220, 0.25));
-  border-radius: 4px;
-  min-width: 0;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.rt-row.rt-row-top .rt-bar-fill {
-  background: linear-gradient(90deg, rgba(232, 168, 64, 0.55), rgba(232, 168, 64, 0.3));
-}
-
-.rt-row.rt-row-bottom .rt-bar-fill {
-  background: linear-gradient(90deg, rgba(232, 64, 87, 0.4), rgba(232, 64, 87, 0.2));
-}
-
-.rt-bar-val {
-  position: relative;
-  z-index: 1;
-  margin-left: auto;
-  padding-right: 10px;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: var(--text-primary);
-  font-family: var(--font-number);
-  font-feature-settings: 'tnum' 1;
-  white-space: nowrap;
-}
-
-/* 高阶原始数据标签 */
-.rt-raw-tag {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.rt-raw-tag b {
-  color: var(--text-secondary);
-  font-family: var(--font-number);
-}
-
-/* 排名数字 */
-.rt-col-rank {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-tertiary);
-  font-family: var(--font-number);
-}
-
-.rt-col-rank.rank-gold {
-  color: var(--accent-gold);
-  font-weight: 800;
-  font-size: var(--text-lg);
-  text-shadow: 0 0 10px rgba(232, 168, 64, 0.4);
-  transform: translateX(-2px);
-}
-
-.rt-col-rank.rank-silver {
-  color: #a0a8b0;
-  font-weight: 700;
-  font-size: var(--text-base);
-  text-shadow: 0 0 8px rgba(160, 168, 176, 0.3);
-}
-
-.rt-col-rank.rank-bronze {
-  color: #b08860;
-  font-weight: 700;
-  font-size: var(--text-base);
-  text-shadow: 0 0 8px rgba(176, 136, 96, 0.3);
-}
-
-/* 玩家列 */
-.rt-avatar {
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: rgba(255,255,255,0.05);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-}
-
-.rt-name {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-
-/* ── 悬浮弹窗 ── */
-.popover-stats {
-  font-size: 13px;
-  line-height: 1.8;
-  color: var(--text-secondary);
-  padding: 4px 2px;
-}
-
-.popover-stats .pop-item {
-  white-space: nowrap;
-}
-
-.popover-stats b {
-  color: var(--text-primary);
-  margin-left: 4px;
-}
-
-/* ── 装备分析专用样式 ── */
-.items-section {
-  margin-bottom: 8px;
-}
-
-.items-section h4 {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-  letter-spacing: 0.02em;
-}
-
-.global-items-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.global-item-card {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
-  min-width: 160px;
-  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
-}
-
-.global-item-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--card-shadow);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.global-item-card .item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.global-item-card .item-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.global-item-card .item-freq {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-family: monospace;
-}
-
-.player-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.player-item-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--glass-bg);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.player-item-row:hover {
-  background: var(--card-elevated);
-  border-color: var(--glass-border);
-}
-
-.player-item-row .fav-avatar {
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.player-item-row .fav-player-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  min-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.player-item-row .fav-item-name {
-  font-size: 14px;
-  color: var(--text-secondary);
-  flex: 1;
-}
-
-.player-item-row .fav-count {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-family: monospace;
-  flex-shrink: 0;
-}
-
-/* ── 高阶数据首末名 ── */
-.advanced-best-worst {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: 28px 24px;
-  box-shadow: var(--card-shadow);
-  position: relative;
-  overflow: hidden;
-}
-
-.advanced-best-worst::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 50%;
-  background: radial-gradient(ellipse at center bottom, var(--glow-gold), transparent 60%);
-  pointer-events: none;
-}
-
-.advanced-best-worst::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 50%;
-  background: radial-gradient(ellipse at center bottom, var(--glow-red), transparent 60%);
-  pointer-events: none;
-}
-
-.abw-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  position: relative;
-  z-index: 1;
-}
-
-.abw-divider {
-  width: 1px;
-  height: 110px;
-  background: var(--glass-border);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.abw-tag {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 14px;
-  border-radius: 10px;
-  letter-spacing: 0.05em;
-}
-
-.abw-tag.best {
-  color: var(--accent-gold);
-  background: rgba(232, 168, 64, 0.12);
-  border: 1px solid rgba(232, 168, 64, 0.2);
-}
-
-.abw-tag.worst {
-  color: var(--accent-red);
-  background: rgba(232, 64, 87, 0.12);
-  border: 1px solid rgba(232, 64, 87, 0.2);
-}
-
-.abw-avatar {
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.abw-name {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.abw-value {
-  font-size: var(--text-2xl);
-  font-weight: 800;
-  font-family: var(--font-number);
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-}
-
-.abw-meta {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.empty-hint {
-  font-size: 13px;
-  color: var(--text-muted);
-  padding: 16px;
-  text-align: center;
-}
-
-/* ── 海克斯悬浮弹窗 ── */
-.aug-popover-players {
-  font-size: 12px;
-  padding: 4px 2px;
-  min-width: 140px;
-}
-
-.aug-pop-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.aug-pop-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  line-height: 1.8;
-}
-
-.aug-pop-name {
-  color: var(--text-primary);
-}
-
-.aug-pop-count {
-  color: var(--text-secondary);
-  font-family: monospace;
-}
-
-/* ── 海克斯玩家列表增强 ── */
-.player-item-row.aug-row {
-  padding: 8px 12px;
-}
-
-.player-item-row .aug-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.player-item-row .aug-freq {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-
-/* ── 英雄池样式 ── */
-.player-item-row.champ-row {
-  padding: 10px 14px;
-}
-
-.champ-player {
-  font-size: 14px;
-  min-width: 110px;
-}
-
-.champ-mid-col {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-}
-
-.champ-name-main {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.champ-meta {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.win-green {
-  color: #2ea86c;
-  font-weight: 700;
-}
-
-.win-red {
-  color: #e84057;
-  font-weight: 700;
-}
-
-.champ-pool-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 52px;
-  background: var(--glass-bg);
-  border: 1px solid rgba(60, 140, 208, 0.15);
-  border-radius: var(--radius-md);
-  padding: 6px 10px;
-  box-shadow: 0 0 12px rgba(60, 140, 208, 0.06);
-}
-
-.pool-badge-num {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--accent-blue);
-  font-family: var(--font-number);
-  line-height: 1;
-}
-
-.pool-badge-label {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 </style>

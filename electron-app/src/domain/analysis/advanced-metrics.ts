@@ -5,7 +5,6 @@
 
 import type { GameRecord } from '@shared/types'
 import type { MetricRankEntry } from '@domain/analysis/types'
-import { getRoleName } from '@shared/utils/mappings'
 
 /** 角色率指标 key → 角色标签 */
 const ROLE_RATE_KEYS = new Set([
@@ -31,9 +30,10 @@ export function computeAdvancedMetricRanking(
   games: GameRecord[],
   key: string,
   championRoles: (championId: number) => string[],
+  getRoleName: (tag: string) => string,
 ): MetricRankEntry[] {
   if (ROLE_RATE_KEYS.has(key)) {
-    return computeRoleRateRanking(games, key, championRoles)
+    return computeRoleRateRanking(games, key, championRoles, getRoleName)
   }
   if (DMG_RATIO_KEYS.has(key)) {
     return computeDamageRatioRanking(games, key)
@@ -49,6 +49,7 @@ function computeRoleRateRanking(
   games: GameRecord[],
   key: string,
   championRoles: (championId: number) => string[],
+  getRoleName: (tag: string) => string,
 ): MetricRankEntry[] {
   const targetTag = ROLE_TAG[key]
   const playerData = new Map<

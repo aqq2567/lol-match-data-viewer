@@ -27,6 +27,10 @@ import {
   parseLockfileWithDiag,
 } from './client-utils'
 
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 // ═══════════════════════════════════════════════════════════
 // 原生插件（懒加载，加载失败时降级到 lockfile 搜索）
 // ═══════════════════════════════════════════════════════════
@@ -53,8 +57,8 @@ function loadLcuAddon(): typeof _lcuAddon {
       getCommandLine1: raw.getCommandLine1.bind(raw),
     }
     console.log('[LCU:DIAG] 原生插件加载成功: akari-tools-win64.node')
-  } catch (err: any) {
-    console.warn(`[LCU:DIAG] 原生插件加载失败: ${err.message || err}，将使用 lockfile 方案`)
+  } catch (err: unknown) {
+    console.warn(`[LCU:DIAG] 原生插件加载失败: ${errMsg(err)}，将使用 lockfile 方案`)
     _lcuAddon = null
   }
   return _lcuAddon
@@ -100,11 +104,12 @@ function lcuAliveCheck(
       console.log(`[LCU:DIAG]   lcuAliveCheck OK: port=${port} status=${res.statusCode} elapsed=${elapsed}ms`)
       resolve({ ok: true, statusCode: res.statusCode })
     })
-    req.on('error', (err: any) => {
+    req.on('error', (err: unknown) => {
+      const nodeErr = err as { code?: string; message?: string }
       const elapsed = Date.now() - t0
-      console.log(`[LCU:DIAG]   lcuAliveCheck 失败: port=${port} code=${err.code || 'none'} message=${err.message} elapsed=${elapsed}ms`)
+      console.log(`[LCU:DIAG]   lcuAliveCheck 失败: port=${port} code=${nodeErr.code || 'none'} message=${nodeErr.message} elapsed=${elapsed}ms`)
       req.destroy()
-      resolve({ ok: false, errorCode: err.code })
+      resolve({ ok: false, errorCode: nodeErr.code })
     })
     req.on('timeout', () => {
       const elapsed = Date.now() - t0
@@ -203,8 +208,8 @@ async function tryNativeAddon(t0: number): Promise<LcuConnectionInfo | null> {
         region,
         rsoPlatformId,
       }
-    } catch (e: any) {
-      console.log(`[LCU:DIAG]   PID ${pid}: 异常 err=${e.message || e}`)
+    } catch (e: unknown) {
+      console.log(`[LCU:DIAG]   PID ${pid}: 异常 err=${errMsg(e)}`)
     }
   }
 
@@ -241,8 +246,8 @@ async function tryLockfileSearch(t0: number): Promise<LcuConnectionInfo | null> 
       const totalElapsed = Date.now() - t0
       console.log(`[LCU:MAIN] 检测到 LCU (方案2 lockfile): port=${parsed.port}, pid=${parsed.pid}, path=${lf}, totalElapsed=${totalElapsed}ms`)
       return { ...parsed, region: '', rsoPlatformId: '' }
-    } catch (e: any) {
-      console.log(`[LCU:DIAG] lockfile 异常: ${lf} err=${e.message || e}`)
+    } catch (e: unknown) {
+      console.log(`[LCU:DIAG] lockfile 异常: ${lf} err=${errMsg(e)}`)
     }
   }
   return null
@@ -288,9 +293,9 @@ export async function findLolClient(): Promise<LcuConnectionInfo | null> {
       console.log('[LCU:MAIN] 未检测到 LeagueClientUx 进程 — 请确认游戏已启动并登录')
     }
     return null
-  } catch (err: any) {
+  } catch (err: unknown) {
     _lastConnection = null
-    console.error(`[LCU:MAIN] 进程检测异常: ${err.message || err}`)
+    console.error(`[LCU:MAIN] 进程检测异常: ${errMsg(err)}`)
     return null
   }
 }
@@ -336,10 +341,11 @@ export class LcuHttpClient {
       try {
         const resp = await this.axios.get<T>(endpoint)
         return resp.data
-      } catch (err: any) {
+      } catch (err: unknown) {
         lastErr = err
-        const code = err.code || ''
-        const status = err.response?.status || 0
+        const axiosErr = err as { code?: string; response?: { status?: number } }
+        const code = axiosErr.code || ''
+        const status = axiosErr.response?.status || 0
         const retryable = code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ETIMEDOUT' ||
           status === 502 || status === 503 || status === 504
         if (!retryable || attempt === MAX_RETRIES) {
@@ -355,7 +361,7 @@ export class LcuHttpClient {
               `token=${maskToken(c.authToken)} attempt=${attempt + 1}/${MAX_RETRIES + 1}`
             )
           } else {
-            console.error(`[LCU:MAIN] LCU API 请求失败 [${status || code}] ${endpoint}: ${err.message || err}${detail}`)
+            console.error(`[LCU:MAIN] LCU API 请求失败 [${status || code}] ${endpoint}: ${errMsg(err)}${detail}`)
           }
           throw err
         }

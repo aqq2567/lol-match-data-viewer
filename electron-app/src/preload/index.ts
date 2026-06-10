@@ -106,4 +106,11 @@ const api = {
 }
 
 contextBridge.exposeInMainWorld('lcuApi', api)
+
+// 将 preload 的 console.log/warn/error 路由到主进程日志文件
+const _preOrig = { log: console.log, warn: console.warn, error: console.error }
+console.log = (...a: any[]) => { _preOrig.log(...a); ipcRenderer.invoke('log:write', 'log', ...a).catch(() => {}) }
+console.warn = (...a: any[]) => { _preOrig.warn(...a); ipcRenderer.invoke('log:write', 'warn', ...a).catch(() => {}) }
+console.error = (...a: any[]) => { _preOrig.error(...a); ipcRenderer.invoke('log:write', 'error', ...a).catch(() => {}) }
+
 console.log('[LCU:PRELOAD] lcuApi 已暴露到 window')

@@ -4,7 +4,6 @@
  */
 
 import type { GameSummary, ParticipantBrief } from '@shared/types'
-import { getPlayerDisplayName } from '@shared/utils/mappings'
 import type { FriendMetricDef, FriendPodiumEntry, FriendStats, FriendSummary } from '@domain/analysis/types'
 
 // ═══════════════════════════════════════════════════════════
@@ -15,7 +14,11 @@ const COLLECTOR_ID = 6676
 const HEARTSTEEL_ID = 3084
 
 /** 从 GameSummary 列表中分析所有队友频次与胜率 */
-export function analyzeFriends(games: GameSummary[], targetPuuid: string): FriendStats[] {
+export function analyzeFriends(
+  games: GameSummary[],
+  targetPuuid: string,
+  getDisplayName: (p: ParticipantBrief) => string,
+): FriendStats[] {
   const map = new Map<string, FriendStats>()
 
   const validGames = games.filter((g) => g.gameMode !== 'PRACTICETOOL')
@@ -48,7 +51,7 @@ export function analyzeFriends(games: GameSummary[], targetPuuid: string): Frien
       } else {
         map.set(p.puuid, {
           puuid: p.puuid,
-          name: getPlayerDisplayName(p),
+          name: getDisplayName(p),
           profileIconId: p.profileIconId,
           gamesTogether: 1,
           winsTogether: g.win ? 1 : 0,

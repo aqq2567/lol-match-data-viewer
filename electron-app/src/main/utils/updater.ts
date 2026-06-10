@@ -12,6 +12,10 @@ import { app, BrowserWindow } from 'electron'
 import axios from 'axios'
 import { getSettings } from './settings'
 
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 /** 当前版本 */
 const CURRENT_VERSION = app.getVersion()
 
@@ -110,8 +114,8 @@ async function checkUpdateViaMirror(getMainWindow: () => BrowserWindow | null) {
     } else {
       console.log('[UPDATER] 镜像源：当前已是最新版本')
     }
-  } catch (err: any) {
-    console.error(`[UPDATER] 镜像源检查失败: ${err.message || err}`)
+  } catch (err: unknown) {
+    console.error(`[UPDATER] 镜像源检查失败: ${errMsg(err)}`)
   }
 }
 

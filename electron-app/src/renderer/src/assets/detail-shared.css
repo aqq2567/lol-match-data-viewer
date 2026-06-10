@@ -1,0 +1,169 @@
+/* AugmentDetail / ItemDetail / ChampionPoolDetail 共享样式 */
+
+/* ── Section ── */
+.items-section {
+  margin-bottom: 8px;
+}
+
+.items-section h4 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+
+/* ── 全局 TOP 卡片网格 ── */
+.global-items-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.global-item-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  min-width: 160px;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+.global-item-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--card-shadow);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.global-item-card .item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.global-item-card .item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-item-card .item-freq {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* ── 玩家列表 ── */
+.player-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--glass-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.player-item-row:hover {
+  background: var(--card-elevated);
+  border-color: var(--glass-border);
+}
+
+.player-item-row .fav-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.player-item-row .fav-player-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 详情行（AugmentDetail + ItemDetail 共享）── */
+.player-item-row .fav-item-name {
+  font-size: 14px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.player-item-row .fav-count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.player-item-row.detail-row {
+  padding: 8px 12px;
+}
+
+.player-item-row .detail-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.player-item-row .detail-freq {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* ── 弹窗（已修正 aug- 前缀命名异味）── */
+.detail-popover-players {
+  font-size: 12px;
+  padding: 4px 2px;
+  min-width: 140px;
+}
+
+.detail-pop-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-pop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  line-height: 1.8;
+}
+
+.detail-pop-name {
+  color: var(--text-primary);
+}
+
+.detail-pop-count {
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* ── 空数据提示 ── */
+.empty-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 16px;
+  text-align: center;
+}

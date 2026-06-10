@@ -13,6 +13,11 @@ import type {
   AugmentData,
   GameDataCache,
 } from '@shared/types'
+import { createGameDataRepository } from '@application/ports'
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 export const useGameDataStore = defineStore('game-data', () => {
   const champions = shallowRef<Record<number, ChampionSimple>>({})
@@ -31,7 +36,8 @@ export const useGameDataStore = defineStore('game-data', () => {
   async function fetchGameData() {
     console.log('[LCU:STORE] fetchGameData 开始')
     try {
-      const data: GameDataCache = await window.lcuApi.fetchGameData()
+      const repo = createGameDataRepository(window.lcuApi)
+      const data: GameDataCache = await repo.load()
       console.log(`[LCU:STORE] fetchGameData 完成: champions=${Object.keys(data.champions).length}, items=${Object.keys(data.items).length}, spells=${Object.keys(data.summonerSpells).length}, perks=${Object.keys(data.perks).length}, queues=${Object.keys(data.queues).length}, augments=${Object.keys(data.augments).length}`)
 
       champions.value = data.champions
@@ -43,8 +49,8 @@ export const useGameDataStore = defineStore('game-data', () => {
       augments.value = data.augments
       connected.value = true
       console.log('[LCU:STORE] connected=true, 游戏数据已就绪')
-    } catch (err: any) {
-      console.error(`[LCU:STORE] 拉取游戏数据失败：${err.message || err}`, err)
+    } catch (err: unknown) {
+      console.error(`[LCU:STORE] 拉取游戏数据失败：${errMsg(err)}`, err)
       connected.value = false
     }
   }

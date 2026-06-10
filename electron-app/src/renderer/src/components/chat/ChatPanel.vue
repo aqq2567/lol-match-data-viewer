@@ -70,9 +70,14 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { NButton, NInput } from 'naive-ui'
-import type { GameRecord, GameDataCache } from '@shared/types'
-import { formatGamesForAI } from '@shared/utils/format-for-ai'
+import type { GameRecord } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
+import { buildChatMessages } from '@application/chat-service'
+import { createChatRepository } from '@application/ports'
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 const props = defineProps<{
   games: GameRecord[]
@@ -92,6 +97,7 @@ const error = ref('')
 let lastGameFp = ''
 
 const gds = useGameDataStore()
+const chat = createChatRepository(window.lcuApi)
 const messagesContainer = ref<HTMLElement>()
 
 const playerCount = computed(() => {
@@ -126,25 +132,6 @@ function scrollToBottom() {
   })
 }
 
-function buildSystemPrompt(): string {
-  if (!props.games.length) return '无对局数据'
-
-  const data = formatGamesForAI(props.games, gds.$state as GameDataCache)
-
-  return [
-    '你是一个英雄联盟对局数据分析师。请严格遵守以下规则：',
-    '',
-    '1. **仅使用下方提供的对局数据回答问题**，不要使用你的训练知识猜测玩家行为、出装习惯或游戏meta',
-    '2. 如果数据中没有相关信息，直接说"数据中没有体现"，不要编造',
-    '3. 仔细核对玩家ID、英雄、装备等字段，不要跨对局或跨玩家混淆数据',
-    '4. 分析时引用具体数值（KDA、伤害、经济等）作为依据',
-    '',
-    '---',
-    '',
-    data,
-  ].join('\n')
-}
-
 async function sendMessage() {
   const text = inputText.value.trim()
   if (!text || sending.value) return
@@ -156,21 +143,15 @@ async function sendMessage() {
   scrollToBottom()
 
   try {
-    const apiMessages: Array<{ role: string; content: string }> = [
-      { role: 'system', content: buildSystemPrompt() },
-    ]
-    for (const msg of messages.value) {
-      apiMessages.push({ role: msg.role, content: msg.content })
-    }
-
-    const result = await window.lcuApi.chatWithAI(apiMessages)
+    const apiMessages = buildChatMessages(props.games, gds.$state as GameDataCache, messages.value)
+    const result = await chat.sendMessage(apiMessages)
     if (result.status === 'success' && result.content) {
       messages.value.push({ role: 'assistant', content: result.content })
     } else {
       error.value = result.message || 'AI 服务返回异常'
     }
-  } catch (e: any) {
-    error.value = e.message || '请求失败'
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '请求失败'
   } finally {
     sending.value = false
     scrollToBottom()

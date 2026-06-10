@@ -1,5 +1,5 @@
 <template>
-  <div class="match-history-card" :class="composedResultClass" :data-game-id="game.gameId">
+  <div class="match-history-card" :class="[composedResultClass, { expanded }]" :data-game-id="game.gameId" @click="toggleExpand">
     <!-- 区域 1: 游戏信息 (112px) -->
     <div class="zone-game">
       <div class="mode" :title="formattedModeText">{{ formattedModeText }}</div>
@@ -128,20 +128,207 @@
     </div>
 
     <!-- 区域 5: 多选框 (40px) -->
-    <div class="zone-checkbox">
+    <div class="zone-checkbox" @click.stop>
       <n-checkbox :checked="selected" @update:checked="$emit('toggle-select')" />
+    </div>
+
+    <!-- 展开对局摘要（LeagueAkari 风格表格布局） -->
+    <div v-if="expanded" class="expanded-detail" @click.stop>
+      <div v-if="loadingDetail" class="detail-loading">
+        <n-spin size="small" />
+        <span>加载中...</span>
+      </div>
+      <div v-else-if="detailError" class="detail-error">
+        <span>{{ detailError }}</span>
+        <button class="retry-btn" @click.stop="fetchDetail()">重试</button>
+      </div>
+      <template v-else-if="gameRecord">
+        <table class="team-table" :class="gameRecord.blue_team.win ? 'team-win' : 'team-lose'">
+          <thead>
+            <tr>
+              <th class="col-player">蓝队 ({{ gameRecord.blue_team.win ? '胜' : '负' }})</th>
+              <th class="col-kda">KDA</th>
+              <th class="col-dmg">伤害</th>
+              <th class="col-ward">视野</th>
+              <th class="col-cs">补刀</th>
+              <th class="col-gold">金币</th>
+              <th class="col-items">装备</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="p in gameRecord.blue_team.players"
+              :key="p.puuid || p.summoner_id"
+              :class="{ self: p.puuid === selfPuuid }"
+            >
+              <td class="col-player">
+                <div class="player-identity">
+                  <ChampionIcon class="detail-champ" :champion-id="p.champion_id" :size="32" round />
+                  <div class="spells-runes-stack">
+                    <div class="spells-col">
+                      <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell1" :size="14" />
+                      <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell2" :size="14" />
+                    </div>
+                    <div class="runes-col">
+                      <PerkDisplay :perk-id="p.stats.runes.perks[0]" :size="14" />
+                      <PerkstyleDisplay :perkstyle-id="p.stats.runes.sub_style" :size="14" />
+                    </div>
+                  </div>
+                  <span class="player-name" :title="p.summoner_name">{{ p.summoner_name }}</span>
+                </div>
+              </td>
+              <td class="col-kda">
+                <div class="kda-numbers">
+                  <span class="k">{{ p.stats.kills }}</span>
+                  <span class="sep">/</span>
+                  <span class="d">{{ p.stats.deaths }}</span>
+                  <span class="sep">/</span>
+                  <span class="a">{{ p.stats.assists }}</span>
+                </div>
+                <div class="kda-sub">{{ p.stats.kda_ratio }} KDA</div>
+              </td>
+              <td class="col-dmg">
+                <div class="dmg-row dealt" title="对英雄伤害">{{ fmtDmg(p.stats.damage.total_to_champs) }}</div>
+                <div class="dmg-row taken" title="承受伤害">{{ fmtDmg(p.stats.damage.total_taken) }}</div>
+              </td>
+              <td class="col-ward">
+                <div class="ward-score" title="视野得分">{{ p.stats.vision.score }}</div>
+                <div class="ward-detail" title="插眼 / 排眼">{{ p.stats.vision.wards_placed }} / {{ p.stats.vision.wards_killed }}</div>
+              </td>
+              <td class="col-cs">
+                <div class="cs-total">{{ p.stats.cs.total }}</div>
+                <div class="cs-min">{{ csPerMin(p.stats.cs.total) }}/min</div>
+              </td>
+              <td class="col-gold">
+                <div class="gold-value">{{ fmtGold(p.stats.economy.gold_earned) }}</div>
+              </td>
+              <td class="col-items">
+                <div class="items-row">
+                  <ItemDisplay v-for="(it, idx) in p.stats.items" :key="idx" :item-id="it" :size="20" />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="team-divider" />
+        <table class="team-table" :class="gameRecord.red_team.win ? 'team-win' : 'team-lose'">
+          <thead>
+            <tr>
+              <th class="col-player">红队 ({{ gameRecord.red_team.win ? '胜' : '负' }})</th>
+              <th class="col-kda">KDA</th>
+              <th class="col-dmg">伤害</th>
+              <th class="col-ward">视野</th>
+              <th class="col-cs">补刀</th>
+              <th class="col-gold">金币</th>
+              <th class="col-items">装备</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="p in gameRecord.red_team.players"
+              :key="p.puuid || p.summoner_id"
+              :class="{ self: p.puuid === selfPuuid }"
+            >
+              <td class="col-player">
+                <div class="player-identity">
+                  <ChampionIcon class="detail-champ" :champion-id="p.champion_id" :size="32" round />
+                  <div class="spells-runes-stack">
+                    <div class="spells-col">
+                      <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell1" :size="14" />
+                      <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell2" :size="14" />
+                    </div>
+                    <div class="runes-col">
+                      <PerkDisplay :perk-id="p.stats.runes.perks[0]" :size="14" />
+                      <PerkstyleDisplay :perkstyle-id="p.stats.runes.sub_style" :size="14" />
+                    </div>
+                  </div>
+                  <span class="player-name" :title="p.summoner_name">{{ p.summoner_name }}</span>
+                </div>
+              </td>
+              <td class="col-kda">
+                <div class="kda-numbers">
+                  <span class="k">{{ p.stats.kills }}</span>
+                  <span class="sep">/</span>
+                  <span class="d">{{ p.stats.deaths }}</span>
+                  <span class="sep">/</span>
+                  <span class="a">{{ p.stats.assists }}</span>
+                </div>
+                <div class="kda-sub">{{ p.stats.kda_ratio }} KDA</div>
+              </td>
+              <td class="col-dmg">
+                <div class="dmg-row dealt" title="对英雄伤害">{{ fmtDmg(p.stats.damage.total_to_champs) }}</div>
+                <div class="dmg-row taken" title="承受伤害">{{ fmtDmg(p.stats.damage.total_taken) }}</div>
+              </td>
+              <td class="col-ward">
+                <div class="ward-score" title="视野得分">{{ p.stats.vision.score }}</div>
+                <div class="ward-detail" title="插眼 / 排眼">{{ p.stats.vision.wards_placed }} / {{ p.stats.vision.wards_killed }}</div>
+              </td>
+              <td class="col-cs">
+                <div class="cs-total">{{ p.stats.cs.total }}</div>
+                <div class="cs-min">{{ csPerMin(p.stats.cs.total) }}/min</div>
+              </td>
+              <td class="col-gold">
+                <div class="gold-value">{{ fmtGold(p.stats.economy.gold_earned) }}</div>
+              </td>
+              <td class="col-items">
+                <div class="items-row">
+                  <ItemDisplay v-for="(it, idx) in p.stats.items" :key="idx" :item-id="it" :size="20" />
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="objectives-bar">
+          <div class="obj-item">
+            <span class="obj-label">塔</span>
+            <span class="obj-blue">{{ gameRecord.blue_team.tower_kills }}</span>
+            <span class="obj-sep">-</span>
+            <span class="obj-red">{{ gameRecord.red_team.tower_kills }}</span>
+          </div>
+          <div class="obj-item">
+            <span class="obj-label">龙</span>
+            <span class="obj-blue">{{ gameRecord.blue_team.dragon_kills }}</span>
+            <span class="obj-sep">-</span>
+            <span class="obj-red">{{ gameRecord.red_team.dragon_kills }}</span>
+          </div>
+          <div class="obj-item">
+            <span class="obj-label">男爵</span>
+            <span class="obj-blue">{{ gameRecord.blue_team.baron_kills }}</span>
+            <span class="obj-sep">-</span>
+            <span class="obj-red">{{ gameRecord.red_team.baron_kills }}</span>
+          </div>
+          <div class="obj-item">
+            <span class="obj-label">水晶</span>
+            <span class="obj-blue">{{ gameRecord.blue_team.inhibitor_kills }}</span>
+            <span class="obj-sep">-</span>
+            <span class="obj-red">{{ gameRecord.red_team.inhibitor_kills }}</span>
+          </div>
+          <div class="obj-item">
+            <span class="obj-label">一血</span>
+            <span :class="gameRecord.blue_team.first_blood ? 'obj-hit' : 'obj-miss'">蓝</span>
+            <span class="obj-sep">/</span>
+            <span :class="gameRecord.red_team.first_blood ? 'obj-hit' : 'obj-miss'">红</span>
+          </div>
+          <div class="obj-item">
+            <span class="obj-label">一塔</span>
+            <span :class="gameRecord.blue_team.first_tower ? 'obj-hit' : 'obj-miss'">蓝</span>
+            <span class="obj-sep">/</span>
+            <span :class="gameRecord.red_team.first_tower ? 'obj-hit' : 'obj-miss'">红</span>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { NCheckbox } from 'naive-ui'
+import { NCheckbox, NSpin } from 'naive-ui'
 import { useTimeoutPoll } from '@vueuse/core'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
-import type { GameSummary, ParticipantBrief } from '@shared/types'
+import type { GameSummary, ParticipantBrief, GameRecord } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
 import { useTabStore } from '@/stores/tab'
 import { formatGameDuration } from '@/utils/format'
@@ -232,6 +419,50 @@ function openPlayerTab(p: ParticipantBrief) {
   if (!name) return
   tabStore.openTab(p.puuid, name, p.profileIconId, 0)
 }
+
+const expanded = ref(false)
+const gameRecord = ref<GameRecord | null>(null)
+const loadingDetail = ref(false)
+const detailError = ref('')
+
+async function fetchDetail() {
+  loadingDetail.value = true
+  detailError.value = ''
+  try {
+    const records = await window.lcuApi.fetchGameDetails([game.gameId])
+    gameRecord.value = records[0] ?? null
+    if (!records[0]) detailError.value = '未找到对局数据'
+  } catch (e: unknown) {
+    detailError.value = e instanceof Error ? e.message : '加载失败'
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+function toggleExpand() {
+  expanded.value = !expanded.value
+  if (expanded.value && !gameRecord.value && !loadingDetail.value) {
+    fetchDetail()
+  }
+}
+
+function fmtGold(n: number): string {
+  if (n >= 10000) return (n / 1000).toFixed(1) + 'k'
+  if (n >= 1000) return (n / 1000).toFixed(2) + 'k'
+  return String(n)
+}
+
+function fmtDmg(n: number): string {
+  if (n >= 10000) return (n / 1000).toFixed(1) + 'k'
+  if (n >= 1000) return (n / 1000).toFixed(2) + 'k'
+  return String(n)
+}
+
+function csPerMin(total: number): string {
+  const dur = game.gameDuration
+  if (!dur || dur <= 0) return '0.0'
+  return (total / (dur / 60)).toFixed(1)
+}
 </script>
 
 <style lang="less" scoped>
@@ -239,14 +470,21 @@ function openPlayerTab(p: ParticipantBrief) {
 
 .match-history-card {
   display: flex;
+  flex-wrap: wrap;
   padding: 0 0 0 12px;
   border-radius: 4px;
   box-sizing: border-box;
   background-color: var(--card-base-bg);
   width: 740px;
-  height: 96px;
+  min-height: 96px;
   overflow: hidden;
   margin-bottom: 4px;
+  cursor: pointer;
+
+  &.expanded {
+    height: auto;
+    cursor: default;
+  }
 }
 
 /* ======== 胜负颜色方案（对齐 LeagueAkari） ======== */
@@ -510,4 +748,221 @@ function openPlayerTab(p: ParticipantBrief) {
   width: 40px;
   cursor: pointer;
 }
+
+/* ======== 展开对局摘要（LeagueAkari 表格风格） ======== */
+.expanded-detail {
+  width: 100%;
+  border-top: 1px solid var(--card-divider);
+  box-sizing: border-box;
+}
+
+.detail-loading, .detail-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.detail-error {
+  .retry-btn {
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    color: var(--text-secondary);
+    padding: 2px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    &:hover { color: var(--text-primary); }
+  }
+}
+
+/* 队伍表格 */
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+
+  thead tr {
+    height: 30px;
+  }
+
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: left;
+    padding: 4px 6px;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+  }
+
+  tbody td {
+    padding: 4px 6px;
+    vertical-align: middle;
+    line-height: 1.3;
+  }
+
+  tbody tr {
+    height: 50px;
+  }
+
+  /* 队伍胜/负背景 */
+  &.team-win {
+    tbody td { background: rgba(59,130,246,0.04); }
+  }
+  &.team-lose {
+    tbody td { background: rgba(239,68,68,0.04); }
+  }
+
+  /* 自我高亮 */
+  tbody tr.self td {
+    background: rgba(255,255,255,0.06) !important;
+  }
+}
+
+/* 列宽 */
+.col-player { width: 190px; }
+.col-kda { width: 88px; }
+.col-dmg { width: 72px; }
+.col-ward { width: 60px; }
+.col-cs { width: 56px; }
+.col-gold { width: 56px; }
+.col-items { width: 162px; }
+
+/* 选手身份 */
+.player-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.detail-champ {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.spells-runes-stack {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.spells-col, .runes-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.self .player-name {
+  font-weight: 700;
+}
+
+/* KDA 列 */
+.kda-numbers {
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  .k { color: var(--kda-k-color); }
+  .d { color: var(--kda-d-color); }
+  .a { color: var(--kda-a-color); }
+  .sep { color: var(--card-text-secondary); font-weight: 400; margin: 0 1px; }
+}
+
+.kda-sub {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+/* 伤害列 */
+.dmg-row {
+  white-space: nowrap;
+  font-size: 11px;
+  &.dealt { color: var(--card-text-secondary); }
+  &.taken { color: var(--text-tertiary); }
+}
+
+/* 视野列 */
+.ward-score {
+  font-size: 12px;
+  color: var(--card-text-primary);
+}
+.ward-detail {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+/* 补刀列 */
+.cs-total {
+  font-size: 12px;
+  color: var(--card-text-primary);
+}
+.cs-min {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+/* 金币列 */
+.gold-value {
+  font-size: 12px;
+  color: var(--card-text-primary);
+  white-space: nowrap;
+}
+
+/* 装备列 */
+.items-row {
+  display: flex;
+  gap: 2px;
+}
+
+/* 队伍分隔线 */
+.team-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 0;
+}
+
+/* 目标栏 */
+.objectives-bar {
+  display: flex;
+  gap: 20px;
+  padding: 8px 0 10px 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.obj-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.obj-label {
+  color: var(--text-tertiary);
+  margin-right: 2px;
+}
+
+.obj-blue { color: rgba(59,130,246,0.85); font-weight: 600; }
+.obj-red { color: rgba(239,68,68,0.85); font-weight: 600; }
+.obj-sep { color: var(--text-muted); }
+.obj-hit { font-weight: 700; }
+.obj-miss { opacity: 0.3; }
 </style>

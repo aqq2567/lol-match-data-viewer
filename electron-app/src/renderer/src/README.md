@@ -56,7 +56,7 @@ computed 派生: currentPageGames, filteredGames, modeOptions...
     ↓
 模板渲染 MatchHistoryCard × N
 
-用户选中对局 → sessionStorage.setItem('analysisGameIds')
+用户选中对局 → bridge.request(gameIds) → Pinia store
     ↓
 router.push('analysis') → AnalysisView.onActivated()
     ↓

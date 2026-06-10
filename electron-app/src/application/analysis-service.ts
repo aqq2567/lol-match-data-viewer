@@ -7,6 +7,12 @@ import type { GameRecord, AnalysisResult } from '@shared/types'
 import type { MatchRepository } from './ports'
 import { computePlayerAnalysis } from '@domain/analysis/aggregation'
 
+// ── 领域纯函数 re-export（渲染层通过应用层访问领域计算）──
+export { buildPlayerAggMap, computeMetricRanking, computePodium, findBestStat, findBestPlayer, computePodiumWinRate } from '@domain/analysis/aggregation'
+export { computeAdvancedMetricRanking } from '@domain/analysis/advanced-metrics'
+export { isPlayerInAllGames, filterToPlayerTeam, hasUniformGameMode } from '@domain/analysis/match-stats'
+export { computeGlobalChampionFreq, computeGlobalItemFreq, computeGlobalAugmentFreq, computePlayerChampionPools, computePlayerFavoriteItems, computePlayerFavoriteAugments, sortPlayerAugmentsByFreq, getChampionUsers, getItemUsers, getAugmentUsers } from '@domain/analysis/frequency'
+
 export async function analyzeSelectedGames(
   api: MatchRepository,
   gameIds: number[],

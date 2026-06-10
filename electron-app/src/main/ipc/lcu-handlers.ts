@@ -10,8 +10,12 @@ import {
   fetchMatchListForPlayer,
   fetchGameDetailsBatched,
   fetchGameData,
-} from '../lcu/extractor'
+} from '../lcu/extractors'
 import type { LcuConnectionInfo, MatchData, MatchListData, GameRecord, GameDataCache, LcuSummoner } from '@shared/types'
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 export interface LcuHandlersContext {
   /** 保留空接口便于后续扩展 */
@@ -73,8 +77,8 @@ export function registerLcuHandlers(ctx: LcuHandlersContext = {}) {
         const data = await withClient(client => fetchMatchList(client, page, pageSize))
         console.log(`[LCU:MAIN] fetch-match-list 完成: ${data.games.length} 场对局`)
         return data
-      } catch (err: any) {
-        console.error(`[LCU:MAIN] fetch-match-list 异常: ${err.message || err}`)
+      } catch (err: unknown) {
+        console.error(`[LCU:MAIN] fetch-match-list 异常: ${errMsg(err)}`)
         throw err
       }
     }
@@ -121,8 +125,8 @@ export function registerLcuHandlers(ctx: LcuHandlersContext = {}) {
       const data = await withClient(client => fetchGameData(client))
       console.log(`[LCU:MAIN] fetch-game-data 完成: ${Object.keys(data.champions).length} 英雄, ${Object.keys(data.items).length} 装备, ${Object.keys(data.summonerSpells).length} 技能, ${Object.keys(data.augments).length} 增幅`)
       return data
-    } catch (err: any) {
-      console.error(`[LCU:MAIN] fetch-game-data 异常: ${err.message || err}`)
+    } catch (err: unknown) {
+      console.error(`[LCU:MAIN] fetch-game-data 异常: ${errMsg(err)}`)
       throw err
     }
   })

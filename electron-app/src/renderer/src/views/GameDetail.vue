@@ -136,10 +136,14 @@ import type { GameRecord, PlayerData, PlayerStats } from '@shared/types'
 import { useGameDataStore } from '@/stores/game-data'
 import { getGameModeName, getQueueName, getMapName } from '@shared/utils/mappings'
 import { formatGameDuration, formatBestValue } from '@/utils/format'
-import { findBestStat, findBestPlayer } from '@domain/analysis/aggregation'
+import { findBestStat, findBestPlayer } from '@application/analysis-service'
 import { loadGameDetail } from '@application/game-detail-service'
 import { createMatchRepository } from '@application/ports'
 import PlayerCard from '@/components/PlayerCard.vue'
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -169,9 +173,9 @@ onMounted(async () => {
     } else {
       console.warn(`[LCU:GAME_DETAIL] 未找到对局: ${gameId.value}`)
     }
-  } catch (e: any) {
-    console.error(`[LCU:GAME_DETAIL] 加载失败: ${e.message || e}`, e)
-    message.error(`加载对局失败: ${e.message || e}`)
+  } catch (e: unknown) {
+    console.error(`[LCU:GAME_DETAIL] 加载失败: ${errMsg(e)}`, e)
+    message.error(`加载对局失败: ${errMsg(e)}`)
   } finally {
     loading.value = false
   }

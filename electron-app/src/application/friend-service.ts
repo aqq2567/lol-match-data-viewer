@@ -6,6 +6,9 @@
 import type { MatchListData } from '@shared/types'
 import type { MatchRepository } from './ports'
 
+// ── 领域纯函数 re-export（渲染层通过应用层访问领域计算）──
+export { analyzeFriends, computeFriendSummary, FRIEND_METRICS, computeSortedByMetric, computeFriendPodium, getFirstPlaceTitle } from '@domain/analysis/friends'
+
 export async function loadFriendAnalysis(
   api: MatchRepository,
 ): Promise<{ matchData: MatchListData; participantCount: number }> {

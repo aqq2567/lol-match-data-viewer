@@ -59,7 +59,7 @@ async function handleMenuChange(key: string) {
   try {
     await router.replace({ name: key })
     console.log(`[LCU:SIDEBAR] 路由切换成功: → ${key}`)
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Vue Router 切换至相同路由时抛出 NavigationDuplicated，不是错误
     if (isNavigationFailure(err, NavigationFailureType.duplicated)) {
       console.log(`[LCU:SIDEBAR] 已在目标页面: ${key}`)

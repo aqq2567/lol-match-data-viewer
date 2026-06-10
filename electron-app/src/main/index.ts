@@ -19,20 +19,34 @@ import { registerLcuAssetProtocol } from './lcu/asset-proxy'
 
 // ═══════════════════════════════════════════════════════════
 // 全局日志拦截 —— 所有 console.log/warn/error 同时写入文件
+// 自动提取 [TAG] 前缀用于日志分类（如 [LCU:MAIN]、[UPDATER]）
 // ═══════════════════════════════════════════════════════════
 logger.init()
 
+const TAG_RE = /^\[([A-Z_]+:[A-Z_]+|[A-Z]+)\]\s*/
+
+function fmtConsole(args: any[]): { tag: string; message: string } {
+  const msg = args.map(a =>
+    a instanceof Error ? (a.message || String(a)) :
+    typeof a === 'object' ? JSON.stringify(a) :
+    String(a)
+  ).join(' ')
+  const m = msg.match(TAG_RE)
+  if (m) return { tag: m[1], message: msg.slice(m[0].length) }
+  return { tag: 'MAIN', message: msg }
+}
+
 console.log = (...args: any[]) => {
-  const msg = args.map(a => (a instanceof Error ? (a.message || String(a)) : typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
-  logger.info('MAIN', msg)
+  const { tag, message } = fmtConsole(args)
+  logger.info(tag, message)
 }
 console.warn = (...args: any[]) => {
-  const msg = args.map(a => (a instanceof Error ? (a.message || String(a)) : typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
-  logger.warn('MAIN', msg)
+  const { tag, message } = fmtConsole(args)
+  logger.warn(tag, message)
 }
 console.error = (...args: any[]) => {
-  const msg = args.map(a => (a instanceof Error ? (a.message || String(a)) : typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
-  logger.error('MAIN', msg)
+  const { tag, message } = fmtConsole(args)
+  logger.error(tag, message)
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -104,10 +118,13 @@ protocol.registerSchemesAsPrivileged([
 // IPC 处理器注册
 // ═══════════════════════════════════════════════════════════
 
-// 渲染进程日志 → 主进程落盘
+// 渲染进程日志 → 主进程落盘（自动提取 [TAG] 前缀）
 ipcMain.handle('log:write', async (_event, level: string, ...args: any[]) => {
   const msg = args.map((a: any) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
-  logger.renderer(level, 'RENDERER', msg)
+  const m = msg.match(TAG_RE)
+  const tag = (m ? m[1] : 'RENDERER') + (level === 'error' ? ':ERROR' : level === 'warn' ? ':WARN' : '')
+  const message = m ? msg.slice(m[0].length) : msg
+  logger.renderer(level, tag, message)
 })
 
 // 更新相关 handler
@@ -128,7 +145,7 @@ ipcMain.handle('update:check', async () => {
 })
 
 // LLM 对话 handler
-ipcMain.handle('llm:chat', async (_event, messages: Array<{ role: string; content: string }>) => {
+ipcMain.handle('llm:chat', async (_event, messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>) => {
   console.log(`[LLM:MAIN] llm:chat 收到请求: ${messages.length} 条消息`)
   const sysMsg = messages.find(m => m.role === 'system')
   if (sysMsg) {
@@ -136,12 +153,13 @@ ipcMain.handle('llm:chat', async (_event, messages: Array<{ role: string; conten
     console.log(`[LLM:MAIN] system prompt 头部 (${sysMsg.content.length} 字):\n${head}`)
   }
   try {
-    const reply = await chatWithLLM(messages as any)
+    const reply = await chatWithLLM(messages)
     console.log(`[LLM:MAIN] llm:chat 成功: 回复长度=${reply.length}`)
     return { status: 'success', content: reply }
-  } catch (err: any) {
-    console.error(`[LLM:MAIN] llm:chat 失败: ${err.message}`)
-    return { status: 'error', message: err.message || String(err) }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[LLM:MAIN] llm:chat 失败: ${msg}`)
+    return { status: 'error', message: msg }
   }
 })
 

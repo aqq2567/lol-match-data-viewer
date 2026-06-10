@@ -86,7 +86,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { NModal, NSwitch, NButton, NDivider, NA, NInput, useMessage } from 'naive-ui'
+import { createSettingsRepository } from '@application/ports'
 import pkg from '../../../../../package.json'
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 const props = defineProps<{
   show: boolean
@@ -101,13 +106,15 @@ const appVersion = pkg.version
 const autoUpdate = ref(true)
 const apiKey = ref('')
 
+const settings = createSettingsRepository(window.lcuApi)
+
 // 每次对话框打开时重新加载设置
 watch(() => props.show, async (visible) => {
   if (!visible) return
   try {
-    const settings = await window.lcuApi.getSettings()
-    autoUpdate.value = settings.autoUpdate !== false
-    apiKey.value = settings.deepseekApiKey || ''
+    const s = await settings.load()
+    autoUpdate.value = s.autoUpdate !== false
+    apiKey.value = s.deepseekApiKey || ''
   } catch {
     // 使用默认值
   }
@@ -120,12 +127,12 @@ function onModalUpdateShow(v: boolean) {
 async function onAutoUpdateToggle(val: boolean) {
   autoUpdate.value = val
   try {
-    await window.lcuApi.setSetting('autoUpdate', val)
+    await settings.setAutoUpdate(val)
     if (val) {
-      window.lcuApi.checkForUpdates().catch(() => {})
+      settings.checkForUpdates().catch(() => {})
     }
-  } catch (e: any) {
-    message.error(`保存设置失败: ${e.message || e}`)
+  } catch (e: unknown) {
+    message.error(`保存设置失败: ${errMsg(e)}`)
     autoUpdate.value = !val
   }
 }
@@ -133,15 +140,15 @@ async function onAutoUpdateToggle(val: boolean) {
 async function onApiKeyChange(val: string) {
   apiKey.value = val
   try {
-    await window.lcuApi.setSetting('deepseekApiKey', val || undefined)
-  } catch (e: any) {
-    message.error(`保存 API Key 失败: ${e.message || e}`)
+    await settings.setDeepseekApiKey(val || undefined)
+  } catch (e: unknown) {
+    message.error(`保存 API Key 失败: ${errMsg(e)}`)
   }
 }
 
 function openLogs() {
-  window.lcuApi.openLogsDir().catch((e: any) => {
-    message.error(`打开日志目录失败: ${e.message || e}`)
+  settings.openLogsDir().catch((e: unknown) => {
+    message.error(`打开日志目录失败: ${errMsg(e)}`)
   })
 }
 
@@ -157,9 +164,9 @@ function openFeedback() {
   ].join('\n'))
   const url = `https://github.com/aqq2567/lol-match-data-viewer/issues/new?title=${title}&body=${body}`
   console.log('[FEEDBACK] 打开链接:', url)
-  window.lcuApi.openExternal(url).catch((e: any) => {
+  settings.openExternal(url).catch((e: unknown) => {
     console.error('[FEEDBACK] 打开失败:', e)
-    message.error(`打开浏览器失败: ${e.message || e}`)
+    message.error(`打开浏览器失败: ${errMsg(e)}`)
   })
 }
 </script>

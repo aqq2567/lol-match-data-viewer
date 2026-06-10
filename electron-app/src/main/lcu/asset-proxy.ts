@@ -80,12 +80,13 @@ export function registerLcuAssetProtocol() {
       } finally {
         _assetLimiter.release()
       }
-    } catch (err: any) {
-      if (err.response?.status === 404) {
+    } catch (err: unknown) {
+      const axiosErr = err as { code?: string; response?: { status?: number } }
+      if (axiosErr.response?.status === 404) {
         return new Response('Not found', { status: 404 })
       }
-      const status = err.response?.status || 'NET'
-      const code = err.code || ''
+      const status = axiosErr.response?.status || 'NET'
+      const code = axiosErr.code || ''
       console.warn(
         `[LCU:MAIN] lcu-asset 代理失败 [${status}${code ? ' ' + code : ''}]: ${fullPath}`
       )
