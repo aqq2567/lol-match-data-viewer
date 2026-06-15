@@ -16,6 +16,7 @@ import { initAutoUpdater } from './utils/updater'
 import { registerLcuHandlers } from './ipc/lcu-handlers'
 import { chatWithLLM } from './utils/llm'
 import { registerLcuAssetProtocol } from './lcu/asset-proxy'
+import { initDb, closeDb } from './db/database'
 
 // ═══════════════════════════════════════════════════════════
 // 全局日志拦截 —— 所有 console.log/warn/error 同时写入文件
@@ -199,8 +200,9 @@ checkForUpdates = initAutoUpdater(() => mainWindow)
 // 应用生命周期
 // ═══════════════════════════════════════════════════════════
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   console.log('[LCU:MAIN] Electron 应用启动完成')
+  await initDb()
   Menu.setApplicationMenu(null)
   registerLcuAssetProtocol()
   createWindow()
@@ -213,6 +215,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  closeDb()
   if (process.platform !== 'darwin') {
     if (isQuitAndInstall) {
       // 更新安装重启：不调用 app.exit(0)，让 electron-updater 完成安装后自动重启

@@ -143,14 +143,15 @@
         <button class="retry-btn" @click.stop="fetchDetail()">重试</button>
       </div>
       <template v-else-if="gameRecord">
-        <table class="team-table" :class="gameRecord.blue_team.win ? 'team-win' : 'team-lose'">
+        <table class="team-table" :class="isPlayerOnBlue ? ownTeamClass : enemyTeamClass">
           <thead>
             <tr>
-              <th class="col-player">蓝队 ({{ gameRecord.blue_team.win ? '胜' : '负' }})</th>
+              <th class="col-player">{{ gameRecord.blue_team.win ? '胜' : '负' }}</th>
               <th class="col-kda">KDA</th>
-              <th class="col-dmg">伤害</th>
-              <th class="col-ward">视野</th>
-              <th class="col-cs">补刀</th>
+              <th class="col-dmg-dealt">伤害</th>
+              <th class="col-dmg-taken">承伤</th>
+              <th v-if="!isKiwi" class="col-ward">视野</th>
+              <th v-if="!isKiwi" class="col-cs">补刀</th>
               <th class="col-gold">金币</th>
               <th class="col-items">装备</th>
             </tr>
@@ -163,17 +164,28 @@
             >
               <td class="col-player">
                 <div class="player-identity">
-                  <ChampionIcon class="detail-champ" :champion-id="p.champion_id" :size="32" round />
-                  <div class="spells-runes-stack">
+                  <template v-if="isKiwi">
                     <div class="spells-col">
                       <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell1" :size="14" />
                       <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell2" :size="14" />
                     </div>
-                    <div class="runes-col">
-                      <PerkDisplay :perk-id="p.stats.runes.perks[0]" :size="14" />
-                      <PerkstyleDisplay :perkstyle-id="p.stats.runes.sub_style" :size="14" />
+                    <div class="augments-col">
+                      <AugmentDisplay v-for="(augId, aidx) in (p.stats.arena.player_augments || []).slice(0, 4)" :key="aidx" :augment-id="augId" :size="18" />
                     </div>
-                  </div>
+                  </template>
+                  <ChampionIcon class="detail-champ" :champion-id="p.champion_id" :size="32" round />
+                  <template v-if="!isKiwi">
+                    <div class="spells-runes-stack">
+                      <div class="spells-col">
+                        <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell1" :size="14" />
+                        <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell2" :size="14" />
+                      </div>
+                      <div class="runes-col">
+                        <PerkDisplay :perk-id="p.stats.runes.perks[0]" :size="14" />
+                        <PerkstyleDisplay :perkstyle-id="p.stats.runes.sub_style" :size="14" />
+                      </div>
+                    </div>
+                  </template>
                   <span class="player-name" :title="p.summoner_name">{{ p.summoner_name }}</span>
                 </div>
               </td>
@@ -187,15 +199,17 @@
                 </div>
                 <div class="kda-sub">{{ p.stats.kda_ratio }} KDA</div>
               </td>
-              <td class="col-dmg">
-                <div class="dmg-row dealt" title="对英雄伤害">{{ fmtDmg(p.stats.damage.total_to_champs) }}</div>
-                <div class="dmg-row taken" title="承受伤害">{{ fmtDmg(p.stats.damage.total_taken) }}</div>
+              <td class="col-dmg-dealt">
+                <div class="dmg-value" title="对英雄伤害">{{ fmtDmg(p.stats.damage.total_to_champs) }}</div>
               </td>
-              <td class="col-ward">
+              <td class="col-dmg-taken">
+                <div class="dmg-value" title="承受伤害">{{ fmtDmg(p.stats.damage.total_taken) }}</div>
+              </td>
+              <td v-if="!isKiwi" class="col-ward">
                 <div class="ward-score" title="视野得分">{{ p.stats.vision.score }}</div>
                 <div class="ward-detail" title="插眼 / 排眼">{{ p.stats.vision.wards_placed }} / {{ p.stats.vision.wards_killed }}</div>
               </td>
-              <td class="col-cs">
+              <td v-if="!isKiwi" class="col-cs">
                 <div class="cs-total">{{ p.stats.cs.total }}</div>
                 <div class="cs-min">{{ csPerMin(p.stats.cs.total) }}/min</div>
               </td>
@@ -211,14 +225,15 @@
           </tbody>
         </table>
         <div class="team-divider" />
-        <table class="team-table" :class="gameRecord.red_team.win ? 'team-win' : 'team-lose'">
+        <table class="team-table" :class="isPlayerOnBlue ? enemyTeamClass : ownTeamClass">
           <thead>
             <tr>
-              <th class="col-player">红队 ({{ gameRecord.red_team.win ? '胜' : '负' }})</th>
+              <th class="col-player">{{ gameRecord.red_team.win ? '胜' : '负' }}</th>
               <th class="col-kda">KDA</th>
-              <th class="col-dmg">伤害</th>
-              <th class="col-ward">视野</th>
-              <th class="col-cs">补刀</th>
+              <th class="col-dmg-dealt">伤害</th>
+              <th class="col-dmg-taken">承伤</th>
+              <th v-if="!isKiwi" class="col-ward">视野</th>
+              <th v-if="!isKiwi" class="col-cs">补刀</th>
               <th class="col-gold">金币</th>
               <th class="col-items">装备</th>
             </tr>
@@ -231,17 +246,28 @@
             >
               <td class="col-player">
                 <div class="player-identity">
-                  <ChampionIcon class="detail-champ" :champion-id="p.champion_id" :size="32" round />
-                  <div class="spells-runes-stack">
+                  <template v-if="isKiwi">
                     <div class="spells-col">
                       <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell1" :size="14" />
                       <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell2" :size="14" />
                     </div>
-                    <div class="runes-col">
-                      <PerkDisplay :perk-id="p.stats.runes.perks[0]" :size="14" />
-                      <PerkstyleDisplay :perkstyle-id="p.stats.runes.sub_style" :size="14" />
+                    <div class="augments-col">
+                      <AugmentDisplay v-for="(augId, aidx) in (p.stats.arena.player_augments || []).slice(0, 4)" :key="aidx" :augment-id="augId" :size="18" />
                     </div>
-                  </div>
+                  </template>
+                  <ChampionIcon class="detail-champ" :champion-id="p.champion_id" :size="32" round />
+                  <template v-if="!isKiwi">
+                    <div class="spells-runes-stack">
+                      <div class="spells-col">
+                        <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell1" :size="14" />
+                        <SummonerSpellDisplay :spell-id="p.stats.summoner_spells.spell2" :size="14" />
+                      </div>
+                      <div class="runes-col">
+                        <PerkDisplay :perk-id="p.stats.runes.perks[0]" :size="14" />
+                        <PerkstyleDisplay :perkstyle-id="p.stats.runes.sub_style" :size="14" />
+                      </div>
+                    </div>
+                  </template>
                   <span class="player-name" :title="p.summoner_name">{{ p.summoner_name }}</span>
                 </div>
               </td>
@@ -255,15 +281,17 @@
                 </div>
                 <div class="kda-sub">{{ p.stats.kda_ratio }} KDA</div>
               </td>
-              <td class="col-dmg">
-                <div class="dmg-row dealt" title="对英雄伤害">{{ fmtDmg(p.stats.damage.total_to_champs) }}</div>
-                <div class="dmg-row taken" title="承受伤害">{{ fmtDmg(p.stats.damage.total_taken) }}</div>
+              <td class="col-dmg-dealt">
+                <div class="dmg-value" title="对英雄伤害">{{ fmtDmg(p.stats.damage.total_to_champs) }}</div>
               </td>
-              <td class="col-ward">
+              <td class="col-dmg-taken">
+                <div class="dmg-value" title="承受伤害">{{ fmtDmg(p.stats.damage.total_taken) }}</div>
+              </td>
+              <td v-if="!isKiwi" class="col-ward">
                 <div class="ward-score" title="视野得分">{{ p.stats.vision.score }}</div>
                 <div class="ward-detail" title="插眼 / 排眼">{{ p.stats.vision.wards_placed }} / {{ p.stats.vision.wards_killed }}</div>
               </td>
-              <td class="col-cs">
+              <td v-if="!isKiwi" class="col-cs">
                 <div class="cs-total">{{ p.stats.cs.total }}</div>
                 <div class="cs-min">{{ csPerMin(p.stats.cs.total) }}/min</div>
               </td>
@@ -305,15 +333,15 @@
           </div>
           <div class="obj-item">
             <span class="obj-label">一血</span>
-            <span :class="gameRecord.blue_team.first_blood ? 'obj-hit' : 'obj-miss'">蓝</span>
+            <span :class="gameRecord.blue_team.first_blood ? 'obj-hit' : 'obj-miss'">●</span>
             <span class="obj-sep">/</span>
-            <span :class="gameRecord.red_team.first_blood ? 'obj-hit' : 'obj-miss'">红</span>
+            <span :class="gameRecord.red_team.first_blood ? 'obj-hit' : 'obj-miss'">●</span>
           </div>
           <div class="obj-item">
             <span class="obj-label">一塔</span>
-            <span :class="gameRecord.blue_team.first_tower ? 'obj-hit' : 'obj-miss'">蓝</span>
+            <span :class="gameRecord.blue_team.first_tower ? 'obj-hit' : 'obj-miss'">●</span>
             <span class="obj-sep">/</span>
-            <span :class="gameRecord.red_team.first_tower ? 'obj-hit' : 'obj-miss'">红</span>
+            <span :class="gameRecord.red_team.first_tower ? 'obj-hit' : 'obj-miss'">●</span>
           </div>
         </div>
       </template>
@@ -340,6 +368,7 @@ import SummonerSpellDisplay from '@/components/widgets/SummonerSpellDisplay.vue'
 import ItemDisplay from '@/components/widgets/ItemDisplay.vue'
 import PerkDisplay from '@/components/widgets/PerkDisplay.vue'
 import PerkstyleDisplay from '@/components/widgets/PerkstyleDisplay.vue'
+import AugmentDisplay from '@/components/widgets/AugmentDisplay.vue'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
@@ -401,6 +430,16 @@ const composedResultClass = computed(() => {
 const showPerks = computed(() => {
   return game.gameMode !== 'KIWI' && game.gameMode !== 'CHERRY'
 })
+
+/** 海克斯大乱斗模式 */
+const isKiwi = computed(() => game.gameMode === 'KIWI')
+
+/** 玩家是否在蓝队 */
+const isPlayerOnBlue = computed(() => game.teamId === 100)
+/** 玩家队伍颜色（赢=蓝 输=红） */
+const ownTeamClass = computed(() => game.win ? 'team-blue' : 'team-red')
+/** 敌方队伍颜色（反色） */
+const enemyTeamClass = computed(() => game.win ? 'team-red' : 'team-blue')
 
 /** 完美 KDA（0 死且有参与击杀） */
 const isPerfectKda = computed(() => {
@@ -810,12 +849,14 @@ function csPerMin(total: number): string {
     height: 50px;
   }
 
-  /* 队伍胜/负背景 */
-  &.team-win {
-    tbody td { background: rgba(59,130,246,0.04); }
+  /* 队伍蓝/红背景 —— 复用卡片自身颜色变量 */
+  &.team-blue {
+    tbody td { background: var(--card-win-bg); }
+    thead th { color: var(--card-win-text); }
   }
-  &.team-lose {
-    tbody td { background: rgba(239,68,68,0.04); }
+  &.team-red {
+    tbody td { background: var(--card-lose-bg); }
+    thead th { color: var(--card-lose-text); }
   }
 
   /* 自我高亮 */
@@ -827,7 +868,8 @@ function csPerMin(total: number): string {
 /* 列宽 */
 .col-player { width: 190px; }
 .col-kda { width: 88px; }
-.col-dmg { width: 72px; }
+.col-dmg-dealt { width: 64px; }
+.col-dmg-taken { width: 64px; }
 .col-ward { width: 60px; }
 .col-cs { width: 56px; }
 .col-gold { width: 56px; }
@@ -860,6 +902,14 @@ function csPerMin(total: number): string {
   gap: 2px;
 }
 
+.augments-col {
+  display: grid;
+  grid-template-columns: 18px 18px;
+  grid-template-rows: 18px 18px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .player-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -890,12 +940,11 @@ function csPerMin(total: number): string {
   margin-top: 1px;
 }
 
-/* 伤害列 */
-.dmg-row {
+/* 伤害/承伤列 */
+.dmg-value {
+  font-size: 12px;
+  color: var(--card-text-primary);
   white-space: nowrap;
-  font-size: 11px;
-  &.dealt { color: var(--card-text-secondary); }
-  &.taken { color: var(--text-tertiary); }
 }
 
 /* 视野列 */

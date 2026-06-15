@@ -106,7 +106,7 @@ npm run preview      # 预览生产构建
 - **中文本地化**：队列名、段位、地图、游戏模式等映射集中在 `shared/utils/mappings.ts`
 - **日志**：主进程使用 `utils/logger.ts`（文件日志），渲染进程使用 `window.lcuApi.log()`（通过 IPC 写入同一日志文件）
 - **日志位置**：`%APPDATA%/lol-match-data-viewer/logs/main-YYYY-MM-DDTHH-mm-ss.log`
-- **无持久数据库**：比赛数据运行时缓存在 Pinia store 和 Vue 响应式变量中，单次会话最多保留 ~200 场比赛（LCU API 上限）
+- **本地 SQLite 持久化**：`src/main/db/` 层使用 sql.js 实现本地数据存储。对局摘要（games 表）无限累积，详情（game_details 表）按需缓存。启动时从 DB 预加载最近 200 场，秒显数据；LCU API 拉取新数据后自动追加。写失败降级运行（不阻止 UI）
 - **LeagueAkari 兼容**：架构风格和命名约定参考 LeagueAkari，尽量保持一致性
 - **安全红线**：API Key 不从代码暴露，`.env` 已 gitignored，日志不记录 Key
 

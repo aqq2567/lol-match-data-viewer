@@ -130,4 +130,28 @@ export function registerLcuHandlers(ctx: LcuHandlersContext = {}) {
       throw err
     }
   })
+
+  // ═══════════════════════════════════════════════════════════
+  // DB 持久化 IPC
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('db:recent-games', async (_event, puuid: string, limit: number) => {
+    const { getRecentGameSummaries } = await import('../db/games')
+    return getRecentGameSummaries(puuid, limit)
+  })
+
+  ipcMain.handle('db:game-detail', async (_event, gameId: number) => {
+    const { getGameDetail } = await import('../db/games')
+    return getGameDetail(gameId)
+  })
+
+  ipcMain.handle('db:save-game-detail', async (_event, gameId: number, detail: GameRecord) => {
+    const { saveGameDetail } = await import('../db/games')
+    saveGameDetail(gameId, detail)
+  })
+
+  ipcMain.handle('db:game-count', async (_event, puuid: string) => {
+    const { getGameSummaryCount } = await import('../db/games')
+    return getGameSummaryCount(puuid)
+  })
 }

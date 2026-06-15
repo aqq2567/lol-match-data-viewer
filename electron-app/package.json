@@ -17,7 +17,8 @@
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "axios": "^1.10.0",
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "sql.js": "^1.14.1"
   },
   "devDependencies": {
     "@vicons/ionicons5": "^0.13.0",
@@ -52,7 +53,8 @@
       "package.json"
     ],
     "asarUnpack": [
-      "addons/**/*"
+      "addons/**/*",
+      "node_modules/sql.js/**/*.wasm"
     ],
     "publish": [
       {

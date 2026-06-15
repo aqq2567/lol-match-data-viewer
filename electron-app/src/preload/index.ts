@@ -103,6 +103,26 @@ const api = {
   chatWithAI(messages: Array<{ role: string; content: string }>): Promise<{ status: string; content?: string; message?: string }> {
     return ipcRenderer.invoke('llm:chat', messages)
   },
+
+  /** DB: 获取本地缓存的最近 N 场对局摘要 */
+  loadRecentGames(puuid: string, limit: number): Promise<ReturnType<typeof import('@shared/types').GameSummary>[]> {
+    return ipcRenderer.invoke('db:recent-games', puuid, limit)
+  },
+
+  /** DB: 获取本地缓存的单场对局详情 */
+  loadGameDetail(gameId: number): Promise<ReturnType<typeof import('@shared/types').GameRecord> | null> {
+    return ipcRenderer.invoke('db:game-detail', gameId)
+  },
+
+  /** DB: 保存对局详情到本地 */
+  saveGameDetail(gameId: number, detail: import('@shared/types').GameRecord): Promise<void> {
+    return ipcRenderer.invoke('db:save-game-detail', gameId, detail)
+  },
+
+  /** DB: 获取本地缓存的玩家对局总数 */
+  loadGameCount(puuid: string): Promise<number> {
+    return ipcRenderer.invoke('db:game-count', puuid)
+  },
 }
 
 contextBridge.exposeInMainWorld('lcuApi', api)

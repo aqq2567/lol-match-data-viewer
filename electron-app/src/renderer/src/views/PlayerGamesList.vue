@@ -257,6 +257,33 @@ function loadPage(page: number) {
 }
 
 let _retryCooldown = 0
+
+/** 启动时从本地 DB 预加载，秒显数据；随后走 LCU 刷新 */
+async function preloadFromDb() {
+  if (!props.puuid) return
+  try {
+    const games = await window.lcuApi.loadRecentGames(props.puuid, 200)
+    if (games.length > 0) {
+      listData.value = {
+        summoner: {
+          puuid: props.puuid,
+          name: props.name,
+          level: props.summonerLevel,
+          region: '',
+          platform: '',
+          profileIconId: props.profileIconId,
+        },
+        ranked: { highest_current_tier: '', highest_previous_tier: '', queues: {} },
+        totalGames: games.length,
+        pageSize: pageSize.value,
+        games,
+      }
+    }
+  } catch {
+    // DB 不可用，静默降级
+  }
+}
+
 async function refreshData() {
   if (loading.value) return
   if (!props.puuid) return
@@ -406,6 +433,7 @@ watch(refreshStamp, (val) => {
 
 onMounted(async () => {
   if (props.puuid && !loading.value) {
+    await preloadFromDb()
     await refreshData()
   }
   window.addEventListener('mouseup', onDragEnd)

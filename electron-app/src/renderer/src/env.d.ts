@@ -26,6 +26,10 @@ interface LcuApi {
   openLogsDir(): Promise<void>
   openExternal(url: string): Promise<void>
   chatWithAI(messages: Array<{ role: string; content: string }>): Promise<{ status: string; content?: string; message?: string }>
+  loadRecentGames(puuid: string, limit: number): Promise<import('@shared/types').GameSummary[]>
+  loadGameDetail(gameId: number): Promise<import('@shared/types').GameRecord | null>
+  saveGameDetail(gameId: number, detail: import('@shared/types').GameRecord): Promise<void>
+  loadGameCount(puuid: string): Promise<number>
 }
 
 declare global {

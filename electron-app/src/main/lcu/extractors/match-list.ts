@@ -8,6 +8,7 @@
  */
 import { LcuHttpClient } from '../client'
 import { DETAIL_CONCUR } from '../concurrency'
+import { saveGameSummaries, getRecentGameSummaries } from '../../db/games'
 import type {
   MatchListData,
   GameSummary,
@@ -62,63 +63,29 @@ async function fetchMatchPage(
   let bestMeta: Games = {} as Games
   let bestGames: Game[] = []
 
-  // 尝试 begIndex（国服缩写参数）
+  // begIndex（国服缩写参数）—— 国际服也兼容此参数
+  const doFetch = () => client.getMatchHistory(puuid, beg, end)
+
   try {
-    const page = await client.getMatchHistory(puuid, beg, end)
-    const games: Game[] = page?.games?.games || []
-    if (games.length > bestGames.length) {
-      bestMeta = page?.games || ({} as Games)
-      bestGames = games
-    }
+    const page = await doFetch()
+    bestGames = page?.games?.games || []
+    bestMeta = page?.games || ({} as Games)
   } catch (err: unknown) {
     const msg = errMsg(err)
-    const isServerError = /status code 5\d\d/.test(msg)
-    if (isServerError) {
+    if (/status code 5\d\d/.test(msg)) {
       console.warn(`[LCU:MAIN] begIndex 请求失败 (${msg}), 等待 3 秒后重试...`)
       await new Promise(resolve => setTimeout(resolve, 3000))
       try {
-        const page = await client.getMatchHistory(puuid, beg, end)
-        const games: Game[] = page?.games?.games || []
-        if (games.length > bestGames.length) {
-          bestMeta = page?.games || ({} as Games)
-          bestGames = games
-        }
-        console.log(`[LCU:MAIN] begIndex 重试成功: ${games.length} 场`)
+        const page = await doFetch()
+        bestGames = page?.games?.games || []
+        bestMeta = page?.games || ({} as Games)
+        console.log(`[LCU:MAIN] begIndex 重试成功: ${bestGames.length} 场`)
       } catch (retryErr: unknown) {
         console.warn(`[LCU:MAIN] begIndex 重试失败 (${errMsg(retryErr)})`)
       }
     } else {
       console.warn(`[LCU:MAIN] begIndex 请求失败 (${msg})`)
     }
-  }
-
-  // 同时尝试 beginIndex（完整拼写），可能触发服务端拉取更多对局
-  const begCount = bestGames.length
-  try {
-    const altPage = await client.getMatchHistoryAlt(puuid, beg, end)
-    const altGames: Game[] = altPage?.games?.games || []
-    if (altGames.length > begCount) {
-      bestMeta = altPage?.games || ({} as Games)
-      bestGames = altGames
-      console.log(`[LCU:MAIN] beginIndex 返回更多: ${altGames.length} 场 vs begIndex ${begCount} 场`)
-    }
-    // begIndex 失败 + beginIndex 返回低于阈值 → LCU 可能仅返回本地缓存
-    // 等待 LCU 后台完成服务端同步后重试一次
-    if (begCount === 0 && altGames.length > 0 && altGames.length < 50) {
-      console.warn(`[LCU:MAIN] beginIndex 仅返回 ${altGames.length} 场 (gameCount=${altPage?.games?.gameCount})，疑似本地缓存，3s 后重试...`)
-      await new Promise(resolve => setTimeout(resolve, 3000))
-      const retryPage = await client.getMatchHistoryAlt(puuid, beg, end)
-      const retryGames: Game[] = retryPage?.games?.games || []
-      if (retryGames.length > altGames.length) {
-        bestMeta = retryPage?.games || ({} as Games)
-        bestGames = retryGames
-        console.log(`[LCU:MAIN] beginIndex 重试成功: ${retryGames.length} 场 (之前 ${altGames.length} 场)`)
-      } else {
-        console.warn(`[LCU:MAIN] beginIndex 重试后仍为 ${retryGames.length} 场`)
-      }
-    }
-  } catch (altErr: unknown) {
-    console.warn(`[LCU:MAIN] beginIndex 请求失败 (${errMsg(altErr)})`)
   }
 
   return { meta: bestMeta, games: bestGames }
@@ -133,7 +100,32 @@ async function fetchAllSummaries(
   client: LcuHttpClient,
   puuid: string,
 ): Promise<{ summaries: Game[]; totalGames: number }> {
-  const { meta: firstMeta, games: firstGames } = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
+  // beginIndex 请求触发 LCU 服务端懒加载（国服返回 400 但副作用生效），
+  // begIndex 请求拿数据。两者并行——暖缓存下 begIndex 直接返回完整数据，无额外延迟。
+  const [firstResult] = await Promise.all([
+    fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1),
+    client.triggerServerSync(puuid, 0, PAGE_SIZE - 1),
+  ])
+  let { meta: firstMeta, games: firstGames } = firstResult
+
+  // 首次拉取仅返回本地缓存（实测 ~21 场），等待后台同步完成后重试
+  if (firstGames.length > 0 && firstGames.length < 50) {
+    const prevCount = firstGames.length
+    console.warn(
+      `[LCU:MAIN] 第一页仅 ${prevCount} 场 (gameCount=${firstMeta.gameCount})，` +
+      `等待 LCU 服务端同步 (3s)...`
+    )
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    const retry = await fetchMatchPage(client, puuid, 0, PAGE_SIZE - 1)
+    if (retry.games.length > firstGames.length) {
+      console.log(
+        `[LCU:MAIN] 第一页重试成功: ${retry.games.length} 场 (之前 ${prevCount} 场, gameCount=${retry.meta.gameCount})`
+      )
+      firstMeta = retry.meta
+      firstGames = retry.games
+    }
+  }
+
   const totalGames: number = firstMeta.gameCount || 0
   const seenIds = new Set<number>()
   const allSummaries: Game[] = []
@@ -452,6 +444,9 @@ export async function fetchMatchList(
 
   const result = buildMatchListData(summaries, detailMap, puuid, summonerInfo, extractRankedData(ranked), totalGames)
   console.log(`[LCU:MAIN] fetch-match-list: 最终 ${result.games.length} 场 (API gameCount=${totalGames})`)
+
+  try { saveGameSummaries(puuid, result.games) } catch { /* 写入失败静默降级 */ }
+
   return result
 }
 
@@ -526,6 +521,13 @@ export async function fetchMatchListForPlayer(
         )
       }
     }
+  }
+
+  // 持久化：写入本地 DB
+  try {
+    saveGameSummaries(targetPuuid, result.games)
+  } catch {
+    // 写入失败静默降级——数据已在内存中，不影响当前显示
   }
 
   return result

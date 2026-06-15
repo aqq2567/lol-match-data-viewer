@@ -360,6 +360,9 @@ export class LcuHttpClient {
               `port=${c.port} pid=${c.pid} pidAlive=${pidAlive} ` +
               `token=${maskToken(c.authToken)} attempt=${attempt + 1}/${MAX_RETRIES + 1}`
             )
+          } else if (status >= 400 && status < 500) {
+            // 4xx 是客户端参数兼容性问题（如国服不支持 beginIndex），降级为 warn
+            console.warn(`[LCU:MAIN] LCU API 请求失败 [${status}] ${endpoint}: ${errMsg(err)}${detail}`)
           } else {
             console.error(`[LCU:MAIN] LCU API 请求失败 [${status || code}] ${endpoint}: ${errMsg(err)}${detail}`)
           }
@@ -404,10 +407,15 @@ export class LcuHttpClient {
     )
   }
 
-  async getMatchHistoryAlt(puuid: string, beg = 0, end = 19) {
-    return this.get<any>(
-      `/lol-match-history/v1/products/lol/${puuid}/matches?beginIndex=${beg}&endIndex=${end}`
-    )
+  /** 仅用于触发 LCU 服务端懒加载，国服会返回 400，忽略结果 */
+  async triggerServerSync(puuid: string, beg = 0, end = 19) {
+    try {
+      await this.get<any>(
+        `/lol-match-history/v1/products/lol/${puuid}/matches?beginIndex=${beg}&endIndex=${end}`
+      )
+    } catch {
+      // 国服不支持 beginIndex 参数（400），但请求本身已触发 LCU 后台向服务端同步
+    }
   }
 
   async getGameDetail(gameId: number) {
