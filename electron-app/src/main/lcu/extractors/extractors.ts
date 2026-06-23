@@ -165,6 +165,24 @@ export function extractStatsFull(participant: any): PlayerStats {
     role_bound_item: stats.roleBoundItem,
     was_severe_transgressor: stats.wasSevereTransgressor || false,
     win: stats.win || false,
+    // SGP 独有字段 — LCU 降级时填默认值
+    spell_casts: { q: 0, w: 0, e: 0, r: 0 },
+    summoner_casts: { d: 0, f: 0 },
+    pings: {
+      all_in: 0, assist: 0, bait: 0, basic: 0, command: 0,
+      danger: 0, enemy_missing: 0, enemy_vision: 0, get_back: 0,
+      hold: 0, need_vision: 0, on_my_way: 0, push: 0, vision_cleared: 0,
+    },
+    team_contribution: {
+      damage_shielded: 0, heals_on_teammates: 0,
+      objectives_stolen: 0, objectives_stolen_assists: 0,
+    },
+    time_breakdown: { total_time_dead: 0, time_played: 0 },
+    items_purchased: 0,
+    consumables_purchased: 0,
+    detector_wards_placed: 0,
+    bounty_level: 0,
+    champ_experience: 0,
   }
 }
 

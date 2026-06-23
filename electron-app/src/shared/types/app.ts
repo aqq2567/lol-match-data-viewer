@@ -123,6 +123,59 @@ export interface PlayerStats {
   role_bound_item: number
   was_severe_transgressor: boolean
   win: boolean
+  // ── SGP 独有字段（LCU 降级时为 0/null） ──
+  spell_casts: SpellCasts
+  summoner_casts: SummonerCasts
+  pings: Pings
+  team_contribution: TeamContribution
+  time_breakdown: TimeBreakdown
+  items_purchased: number
+  consumables_purchased: number
+  detector_wards_placed: number
+  bounty_level: number
+  champ_experience: number
+}
+
+// 新增 — SGP 专属子结构，LCU 降级时字段为 0/null
+export interface SpellCasts {
+  q: number   // spell1Casts
+  w: number   // spell2Casts
+  e: number   // spell3Casts
+  r: number   // spell4Casts
+}
+
+export interface SummonerCasts {
+  d: number   // summoner1Casts
+  f: number   // summoner2Casts
+}
+
+export interface Pings {
+  all_in: number
+  assist: number
+  bait: number
+  basic: number
+  command: number
+  danger: number
+  enemy_missing: number
+  enemy_vision: number
+  get_back: number
+  hold: number
+  need_vision: number
+  on_my_way: number
+  push: number
+  vision_cleared: number
+}
+
+export interface TeamContribution {
+  damage_shielded: number           // totalDamageShieldedOnTeammates
+  heals_on_teammates: number        // totalHealsOnTeammates
+  objectives_stolen: number         // objectivesStolen
+  objectives_stolen_assists: number // objectivesStolenAssists
+}
+
+export interface TimeBreakdown {
+  total_time_dead: number  // totalTimeSpentDead
+  time_played: number      // timePlayed
 }
 
 export interface PlayerData {
