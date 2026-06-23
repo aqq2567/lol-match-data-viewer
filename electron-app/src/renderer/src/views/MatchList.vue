@@ -45,11 +45,20 @@ onMounted(async () => {
   tabStore.ensureDefaultTab()
 
   if (typeof window.lcuApi === 'undefined') return
+  const conn = await window.lcuApi.checkConnection()
   const { connected, summoner } = await initializeSession(createSessionRepository(window.lcuApi))
   if (connected && summoner) {
     tabStore.updateDefaultTab(summoner.puuid, summonerDisplayName(summoner), summoner.profileIconId, summoner.summonerLevel)
     if (!gds.isLoaded) {
       await gds.fetchGameData()
+    }
+    // Init SGP in background — don't block UI.
+    // rsoPlatformId comes from the LCU connection info (e.g. TENCENT_HN1).
+    const platform = conn?.rsoPlatformId || ''
+    if (platform) {
+      window.lcuApi.sgpInit(platform).then(ok => {
+        console.log(ok ? '[APP] SGP ready' : '[APP] SGP unavailable, using LCU')
+      }).catch(() => {})
     }
   }
 })

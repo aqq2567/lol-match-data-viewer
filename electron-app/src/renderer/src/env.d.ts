@@ -32,6 +32,8 @@ interface LcuApi {
   loadGameCount(puuid: string): Promise<number>
   getDailyGames(puuid: string, date: string): Promise<any[]>
   getRecentDates(puuid: string, limit: number): Promise<string[]>
+  sgpInit(rsoPlatformId: string): Promise<boolean>
+  sgpDestroy(): Promise<void>
 }
 
 declare global {

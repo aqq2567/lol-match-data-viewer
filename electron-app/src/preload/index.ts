@@ -133,6 +133,16 @@ const api = {
   getRecentDates(puuid: string, limit: number): Promise<string[]> {
     return ipcRenderer.invoke('db:recent-dates', puuid, limit)
   },
+
+  /** SGP: 初始化 SGP 通道（获取 entitlements token） */
+  sgpInit(rsoPlatformId: string): Promise<boolean> {
+    return ipcRenderer.invoke('sgp:init', rsoPlatformId)
+  },
+
+  /** SGP: 销毁 SGP 通道 */
+  sgpDestroy(): Promise<void> {
+    return ipcRenderer.invoke('sgp:destroy')
+  },
 }
 
 contextBridge.exposeInMainWorld('lcuApi', api)
