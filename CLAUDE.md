@@ -116,61 +116,89 @@ npm run preview      # 预览生产构建
 - `@shared/*` → `src/shared/*`
 - `@/*` → `src/renderer/src/*`
 
-## LCU API 数据源限制与 SGP 扩展
+## SGP 数据源（Phase 1 已完成）
 
-### 当前状态（v0.4.0）
+> **参考实现**: LeagueAkari (`D:\LOL\LeagueAkari`) — 凡是 SGP 行为不清楚时，优先读 LeagueAkari 源码。
 
-LCU match-history API 单玩家上限 **~200 场**。经实验验证：
+### 架构概览
 
-| endIndex | 返回 | 说明 |
-|----------|------|------|
-| 99 | 100 场 | 仅命中 LCU 本地缓存 |
-| 499 | 200 场 | 触发 LCU 从服务端拉取 |
-| 1999 | 200 场 | 服务端 gameCount=200，硬上限 |
+```
+启动 → LCU checkConnection → 获取 entitlements JWT
+  ├─ 成功 → SgpManager.init() → SGP 通道就绪
+  │         后续所有对局请求走 SGP（一次调用出列表+详情）
+  └─ 失败 → 标记不可用 → 全链路降级 LCU（现有逻辑不变）
+```
 
-代码位于 `electron-app/src/main/lcu/extractor.ts`：
-- `PAGE_SIZE=500`：单次 `begIndex`/`endIndex` 范围（endIndex 必须 ≥499 触发热加载）
-- `fetchMatchPage()`：同时尝试 `begIndex` 和 `beginIndex`，取结果更多的一方，失败时等待 3s 重试
-- `fetchAllSummaries()`：所有分页 `Promise.all` 并行发出，`Set<number>` 去重
-- `loadDetailMap()`：先查 `gameDetailCache`（会话级 `Map<gameId, detail>`），未命中一次性全量并行拉取
-- `MAX_FETCH_COUNT=2000` 为安全阀
+### SGP 响应特征
 
-### SGP API（未来扩展参考）
+**SGP `/SUMMARY` 端点返回 `{ games: [...] }`，没有 `gameCount` / `totalGames` 字段。**
+这意味着无法提前知道玩家总共多少场——只能分页拉到返回空为止。
 
-LeagueAkari 使用 **双数据源** 突破 200 场上限，详细分析见 `docs/LEAGUEAKARI_ANALYSIS.md`：
+LeagueAkari 的处理方式：data-mapper 把 `gameCount` 设为请求时的 `count` 参数（假值），
+UI 用传统的"上一页/下一页"按钮导航，不做自动全量拉取。
 
-**SGP（Service Gateway Proxy）** 是 Riot 后端直连 API，不经过 LCU 代理，支持无限分页。
+### 分页策略
 
-接入所需步骤：
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `SGP_PAGE_SIZE` | 200 | 单次请求上限（LeagueAkari 同样封顶 200） |
+| `SGP_MAX_GAMES` | 500 | 目标拉取上限（用户体验限制，非 API 限制） |
 
-1. **获取 entitlementsToken**：`GET /entitlements/v1/token` → `{ accessToken: "JWT..." }`
-2. **SGP 服务器地址**（国服）：
-   - 大区 ID 格式：`TENCENT_{rsoPlatformId}`（如 HN1, NJ100 等）
-   - 战绩服务器：`https://{zone}-sgp.lol.qq.com:21019`
-   - 全量配置见 `D:\LOL\LeagueAkari\resources\builtin-config\sgp\league-servers.json`
-3. **请求战绩**：`GET /match-history-query/v1/products/lol/player/{puuid}/SUMMARY?startIndex=0&count=200`
-   - Header：`Authorization: Bearer {entitlementsToken}`
-   - 响应包含完整对局数据（无需二次请求详情）
-   - 通过递增 `startIndex` 可遍历全部历史
+分页逻辑在 `match-list.ts` 的 `fetchSgpGamesPaginated()`：
+循环 `start=0, count=200` → `start=200, count=200` → `start=400, count=100`，
+终止条件：返回数 < 请求数（末页）或返回空或达到 500。
 
-**SGP vs LCU 对比**：
+### 服务器地址解析
 
-| | LCU API | SGP API |
-|--|---------|---------|
-| 端点 | `127.0.0.1:{port}` | Riot 远程服务器 |
-| 上限 | ~200 场 | 无限制（可分页） |
-| 数据 | 摘要，需二次请求 | 完整对局 |
-| 认证 | Basic Auth | Bearer JWT |
-| 队列过滤 | 不支持 | `tag` 参数（如 `q_420`=排位） |
+`config.ts` 使用 **静态 import**（非 `fs.readFileSync`），因为 electron-vite 将所有
+主进程代码打包进单一 `out/main/index.js`，运行时文件系统无法定位 JSON。
 
-### LeagueAkari 参考副本
+```
+import builtinServers from './tencent-servers.json'
+```
 
-本地克隆位置：`D:\LOL\LeagueAkari`。关键文件：
-- `src/shared/data-sources/sgp/index.ts` — SGP HTTP 客户端
-- `src/main/shards/sgp/data-mapper.ts` — SGP → LCU 格式映射
-- `src/main/shards/sgp/index.ts` — Token 维护与 IPC
-- `src/shared/http-api-axios-helper/league-client/match-history.ts` — LCU match-history 端点
-- `resources/builtin-config/sgp/league-servers.json` — SGP 服务器地址配置
+查找优先级：
+1. `tencent-servers.json` 精确匹配 `TENCENT_*` → `matchHistory` URL
+2. 动态拼域名 fallback: `{zone}-sgp.lol.qq.com:21019`
+
+LeagueAkari 使用三层策略（asarUnpack + 用户数据副本 + 远程热更新），我们暂不需要。
+
+### Token 生命周期
+
+- 启动时从 LCU `GET /entitlements/v1/token` 获取 JWT
+- SGP 请求 401 → `onTokenExpired` 回调自动续期 → 续期失败标记降级
+- 不轮询 refresh，仅在 401 时被动续
+
+### 关键文件
+
+```
+electron-app/src/main/sgp/
+├── types.ts              # SGP 原始响应类型（13 接口，~110 Participant 字段）
+├── config.ts             # 服务器地址解析 + 静态 JSON import
+├── client.ts             # axios HTTP 客户端，Bearer auth，401 自动续期
+├── extractor.ts          # 纯函数：SGP raw → GameSummary + GameRecord
+├── index.ts              # SgpManager 单例：token 生命周期 + fetchGames()
+└── tencent-servers.json  # 内置 10 条国服地址（兼容 LeagueAkari 格式）
+```
+
+### LeagueAkari 参考文件
+
+本地路径 `D:\LOL\LeagueAkari`，关键参考点：
+
+| 文件 | 参考内容 |
+|------|---------|
+| `src/shared/data-sources/sgp/index.ts` | HTTP 客户端实现、`getMatchHistory()` 参数 |
+| `src/main/shards/sgp/data-mapper.ts` | SGP → LCU 格式映射、`gameCount` 假值处理 |
+| `src/main/shards/sgp/index.ts` | Token 维护、三层配置加载、config validation |
+| `resources/builtin-config/sgp/league-servers.json` | 全量服务器地址（国服+国际服） |
+| `src/renderer/.../MatchHistoryTab.vue` | UI 分页：页数按钮、pageSize 下拉（10/20/30/40/50/100/200） |
+
+### 已知限制
+
+- SGP 单次请求 ≤200 场（LeagueAkari 同样遵守）
+- SGP 可能限制总可查询范围（如最近 200 场），具体上限需实测验证
+- 国服仅支持 `TENCENT_*` 大区，国际服需扩展 `tencent-servers.json`
+- electron-vite 打包导致 `__dirname` 不可用于文件定位 → 静态资源统一用 import
 
 ### 构建配置
 
