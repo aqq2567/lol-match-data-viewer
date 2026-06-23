@@ -496,17 +496,25 @@ async function fetchSgpGamesPaginated(
   const allSummaries: GameSummary[] = []
   const allRecords: GameRecord[] = []
   let start = 0
+  let page = 0
 
   while (allSummaries.length < maxGames) {
+    page++
     const count = Math.min(SGP_PAGE_SIZE, maxGames - allSummaries.length)
+    console.log(`[SGP:PAGE] 第 ${page} 页: startIndex=${start} count=${count}`)
     const { summaries, records } = await sgp.fetchGames(puuid, start, count)
+    console.log(`[SGP:PAGE] 第 ${page} 页返回: ${summaries.length} 场 (累计 ${allSummaries.length + summaries.length})`)
     if (summaries.length === 0) break
     allSummaries.push(...summaries)
     allRecords.push(...records)
     start += count
-    if (summaries.length < count) break  // 返回少于请求 = 已到末页
+    if (summaries.length < count) {
+      console.log(`[SGP:PAGE] 返回 ${summaries.length} < 请求 ${count}，已到末页，停止分页`)
+      break
+    }
   }
 
+  console.log(`[SGP:PAGE] 分页完成: ${page} 页共 ${allSummaries.length} 场`)
   return { summaries: allSummaries, records: allRecords }
 }
 
@@ -653,7 +661,7 @@ export async function fetchMatchListForPlayer(
     }
     if (injected > 0) {
       result.games.sort((a, b) => b.gameCreation - a.gameCreation)
-      const MAX_GAMES = 200
+      const MAX_GAMES = 500
       if (result.games.length > MAX_GAMES) {
         const trimmed = result.games.length - MAX_GAMES
         result.games = result.games.slice(0, MAX_GAMES)

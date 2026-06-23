@@ -262,7 +262,7 @@ let _retryCooldown = 0
 async function preloadFromDb() {
   if (!props.puuid) return
   try {
-    const games = await window.lcuApi.loadRecentGames(props.puuid, 200)
+    const games = await window.lcuApi.loadRecentGames(props.puuid, 500)
     if (games.length > 0) {
       listData.value = {
         summoner: {
