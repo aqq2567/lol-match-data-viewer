@@ -26,6 +26,7 @@ import type {
   Stats,
 } from '@shared/types/lcu-api'
 import { safeInt, extractRankedData } from './extractors'
+import { SgpManager } from '../../sgp'
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
@@ -482,16 +483,9 @@ export async function fetchMatchList(
   const summoner = await client.getCurrentSummoner()
   const puuid = summoner.puuid
 
-  const [ranked, { summaries, totalGames }] = await Promise.all([
+  const [ranked] = await Promise.all([
     client.getRankedStats(puuid),
-    fetchAllSummaries(client, puuid),
   ])
-
-  console.log(
-    `[LCU:MAIN] fetch-match-list: 分页完成 共 ${summaries.length} 场摘要 (API gameCount=${totalGames})`
-  )
-
-  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), '详情补载')
 
   const summonerInfo: SummonerInfo = {
     puuid,
@@ -501,6 +495,39 @@ export async function fetchMatchList(
     platform: client.rsoPlatformId,
     profileIconId: summoner.profileIconId || 0,
   }
+
+  // ── 尝试 SGP ──
+  const sgp = SgpManager.instance
+  if (sgp.available) {
+    try {
+      console.log('[LCU:MAIN] fetch-match-list: trying SGP...')
+      const { summaries } = await sgp.fetchGames(puuid, 0, 200)
+      console.log(`[LCU:MAIN] SGP fetch-match-list: ${summaries.length} 场`)
+
+      const result: MatchListData = {
+        summoner: summonerInfo,
+        ranked: extractRankedData(ranked),
+        totalGames: summaries.length,
+        pageSize: 0,
+        games: summaries,
+      }
+
+      try { saveGameSummaries(puuid, result.games) } catch { /* 降级 */ }
+      return result
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`[LCU:MAIN] SGP failed (${msg}), falling back to LCU`)
+    }
+  }
+
+  // ── LCU fallback（现有逻辑） ──
+  const { summaries, totalGames } = await fetchAllSummaries(client, puuid)
+
+  console.log(
+    `[LCU:MAIN] fetch-match-list: 分页完成 共 ${summaries.length} 场摘要 (API gameCount=${totalGames})`
+  )
+
+  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), '详情补载')
 
   const result = buildMatchListData(summaries, detailMap, puuid, summonerInfo, extractRankedData(ranked), totalGames)
   console.log(`[LCU:MAIN] fetch-match-list: 最终 ${result.games.length} 场 (API gameCount=${totalGames})`)
@@ -519,17 +546,9 @@ export async function fetchMatchListForPlayer(
   _page: number = 1,
   _pageSize: number = 20
 ): Promise<MatchListData> {
-  const [ranked, { summaries, totalGames }] = await Promise.all([
+  const [ranked] = await Promise.all([
     client.getRankedStats(targetPuuid),
-    fetchAllSummaries(client, targetPuuid),
   ])
-
-  console.log(
-    `[LCU:MAIN] fetchMatchListForPlayer ${summonerName}: ` +
-    `分页完成 共 ${summaries.length} 场摘要 gameCount=${totalGames}`
-  )
-
-  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), `详情补载 (${summonerName})`)
 
   const summonerInfo: SummonerInfo = {
     puuid: targetPuuid,
@@ -539,6 +558,39 @@ export async function fetchMatchListForPlayer(
     platform: client.rsoPlatformId,
     profileIconId,
   }
+
+  // ── 尝试 SGP ──
+  const sgp = SgpManager.instance
+  if (sgp.available) {
+    try {
+      const { summaries } = await sgp.fetchGames(targetPuuid, 0, 200)
+      console.log(`[LCU:MAIN] SGP fetchMatchListForPlayer ${summonerName}: ${summaries.length} 场`)
+
+      const result: MatchListData = {
+        summoner: summonerInfo,
+        ranked: extractRankedData(ranked),
+        totalGames: summaries.length,
+        pageSize: 0,
+        games: summaries,
+      }
+
+      try { saveGameSummaries(targetPuuid, result.games) } catch { /* 降级 */ }
+      return result
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`[LCU:MAIN] SGP for player ${summonerName} failed (${msg}), falling back to LCU`)
+    }
+  }
+
+  // ── LCU fallback（现有逻辑，保持不变） ──
+  const { summaries, totalGames } = await fetchAllSummaries(client, targetPuuid)
+
+  console.log(
+    `[LCU:MAIN] fetchMatchListForPlayer ${summonerName}: ` +
+    `分页完成 共 ${summaries.length} 场摘要 gameCount=${totalGames}`
+  )
+
+  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), `详情补载 (${summonerName})`)
 
   const result = buildMatchListData(summaries, detailMap, targetPuuid, summonerInfo, extractRankedData(ranked), totalGames)
 

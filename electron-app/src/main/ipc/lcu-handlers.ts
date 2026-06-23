@@ -165,6 +165,17 @@ export function registerLcuHandlers(ctx: LcuHandlersContext = {}) {
     return fetchEntitlementsToken()
   })
 
+  // After LCU connection is established, try to init SGP
+  ipcMain.handle('sgp:init', async (_event, rsoPlatformId: string): Promise<boolean> => {
+    const { SgpManager } = await import('../sgp')
+    return SgpManager.instance.init(rsoPlatformId)
+  })
+
+  ipcMain.handle('sgp:destroy', async (): Promise<void> => {
+    const { SgpManager } = await import('../sgp')
+    SgpManager.instance.destroy()
+  })
+
   // ═══════════════════════════════════════════════════════════
   // DB 持久化 IPC
   // ═══════════════════════════════════════════════════════════
