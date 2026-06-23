@@ -45,7 +45,6 @@ export function resolveSgpBaseUrl(rsoPlatformId: string): string {
   // 动态拼域名 fallback
   const zone = serverId.replace('TENCENT_', '').toLowerCase()
   // 一级 fallback — 直连模式
-  // return `https://${zone}-k8s-sgp.lol.qq.com:21019`  // k8s 模式（待启用）
   return `https://${zone}-sgp.lol.qq.com:21019`
 }
 
