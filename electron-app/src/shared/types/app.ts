@@ -50,132 +50,148 @@ export interface RankedData {
 // ═══════════════════════════════════════════════════════════
 
 export interface PlayerStats {
-  kills: number
-  deaths: number
-  assists: number
-  kda: number
-  kda_ratio: string
-  largest_multi_kill: number
-  largest_killing_spree: number
-  killing_sprees: number
-  double_kills: number
-  triple_kills: number
-  quadra_kills: number
-  penta_kills: number
-  unreal_kills: number
+  // ═══ KDA ═══
+  kills: number                // 击杀
+  deaths: number               // 死亡
+  assists: number              // 助攻
+  kda: number                  // KDA 值
+  kda_ratio: string            // KDA 比例字符串
+  largest_multi_kill: number   // 最大连杀数
+  largest_killing_spree: number // 最大击杀狂欢
+  killing_sprees: number       // 击杀狂欢次数
+  double_kills: number         // 双杀
+  triple_kills: number         // 三杀
+  quadra_kills: number         // 四杀
+  penta_kills: number          // 五杀
+  unreal_kills: number         // 六杀
+  // ═══ 伤害 ═══
   damage: {
-    total_to_champs: number
-    total_dealt: number
-    total_taken: number
-    physical_to_champs: number
-    physical_dealt: number
-    physical_taken: number
-    magic_to_champs: number
-    magic_dealt: number
-    magic_taken: number
-    true_to_champs: number
-    true_dealt: number
-    true_taken: number
-    largest_critical_strike: number
+    total_to_champs: number       // 对英雄总伤害
+    total_dealt: number           // 总伤害输出
+    total_taken: number           // 总承受伤害
+    physical_to_champs: number    // 对英雄物理伤害
+    physical_dealt: number        // 物理伤害输出
+    physical_taken: number        // 物理承受伤害
+    magic_to_champs: number       // 对英雄魔法伤害
+    magic_dealt: number           // 魔法伤害输出
+    magic_taken: number           // 魔法承受伤害
+    true_to_champs: number        // 对英雄真实伤害
+    true_dealt: number            // 真实伤害输出
+    true_taken: number            // 真实承受伤害
+    largest_critical_strike: number // 最大暴击伤害
   }
-  economy: { gold_earned: number; gold_spent: number }
+  // ═══ 经济 ═══
+  economy: { gold_earned: number; gold_spent: number }  // 金币获得 / 金币花费
+  // ═══ 补刀 ═══
   cs: {
-    total: number
-    minions: number
-    neutral_total: number
-    neutral_enemy_jungle: number
-    neutral_team_jungle: number
+    total: number                 // 总补刀
+    minions: number               // 小兵补刀
+    neutral_total: number         // 野怪补刀
+    neutral_enemy_jungle: number  // 敌方野区野怪（反野）
+    neutral_team_jungle: number   // 友方野区野怪
   }
-  items: number[]
+  // ═══ 装备 ═══
+  items: number[]              // 装备列表 (item0-item6)
+  // ═══ 符文 ═══
   runes: {
-    primary_style: number
-    sub_style: number
-    perks: number[]
-    perk_vars: Record<string, number[]>
+    primary_style: number      // 主符文系
+    sub_style: number          // 副符文系
+    perks: number[]            // 符文 ID 列表
+    perk_vars: Record<string, number[]> // 符文变量
   }
+  // ═══ 视野 ═══
   vision: {
-    score: number
-    wards_placed: number
-    wards_killed: number
-    sight_wards_bought: number
-    vision_wards_bought: number
+    score: number              // 视野得分
+    wards_placed: number       // 放置守卫数
+    wards_killed: number       // 摧毁守卫数
+    sight_wards_bought: number // 购买真眼数
+    vision_wards_bought: number // 购买假眼数
   }
+  // ═══ 目标 ═══
   objectives: {
-    turret_kills: number
-    inhibitor_kills: number
-    damage_to_turrets: number
-    damage_to_objectives: number
+    turret_kills: number       // 防御塔击杀
+    inhibitor_kills: number    // 水晶击杀
+    damage_to_turrets: number  // 对防御塔伤害
+    damage_to_objectives: number // 对目标伤害
   }
-  cc: { time_cc_others: number; total_cc_dealt: number }
+  // ═══ 控制技能 ═══
+  cc: { time_cc_others: number; total_cc_dealt: number } // 控制敌方时间 / 总共控制时长
+  // ═══ 生存 ═══
   survival: {
-    longest_time_living: number
-    damage_self_mitigated: number
-    total_heal: number
-    total_units_healed: number
+    longest_time_living: number    // 最长连续存活时间
+    damage_self_mitigated: number  // 自我减伤
+    total_heal: number             // 总治疗量
+    total_units_healed: number     // 治疗单位数
   }
-  champ_level: number
-  firsts: Record<string, boolean>
-  summoner_spells: { spell1: number | null; spell2: number | null }
-  position: { individual_position: string; team_position: string; lane: string }
-  surrender: Record<string, boolean>
-  arena: { subteam_placement: number; player_subteam_id: number; player_augments: number[] }
-  scores: { combat: number; objective: number; total: number; rank: number; details: number[] }
-  role_bound_item: number
-  was_severe_transgressor: boolean
-  win: boolean
-  // ── SGP 独有字段（LCU 降级时为 0/null） ──
-  spell_casts: SpellCasts
-  summoner_casts: SummonerCasts
-  pings: Pings
-  team_contribution: TeamContribution
-  time_breakdown: TimeBreakdown
-  items_purchased: number
-  consumables_purchased: number
-  detector_wards_placed: number
-  bounty_level: number
-  champ_experience: number
+  champ_level: number          // 英雄等级
+  firsts: Record<string, boolean> // 首杀/首塔标记
+  summoner_spells: { spell1: number | null; spell2: number | null } // 召唤师技能
+  position: { individual_position: string; team_position: string; lane: string } // 位置
+  surrender: Record<string, boolean> // 投降标记
+  arena: { subteam_placement: number; player_subteam_id: number; player_augments: number[] } // 竞技场
+  scores: { combat: number; objective: number; total: number; rank: number; details: number[] } // 【LCU 独有】评分
+  role_bound_item: number      // 【LCU 独有】角色绑定装备
+  was_severe_transgressor: boolean // 【LCU 独有】是否严重违规
+  win: boolean                 // 胜负
+  // ═══ SGP 独有字段（LCU 降级时为 0/null） ═══
+  spell_casts: SpellCasts           // 技能释放次数 (Q/W/E/R)
+  summoner_casts: SummonerCasts     // 召唤师技能释放次数 (D/F)
+  pings: Pings                      // 14 种信号次数
+  team_contribution: TeamContribution // 团队贡献（护盾/治疗/偷龙）
+  time_breakdown: TimeBreakdown     // 时间分解（死亡时间/游戏时间）
+  items_purchased: number           // 购买装备次数
+  consumables_purchased: number     // 购买消耗品次数
+  detector_wards_placed: number     // 放置控制守卫数
+  bounty_level: number              // 赏金等级
+  champ_experience: number          // 英雄经验值
 }
 
-// 新增 — SGP 专属子结构，LCU 降级时字段为 0/null
+// ═══ SGP 专属子结构（LCU 降级时字段为 0/null） ═══
+
+/** 技能释放次数 (Q/W/E/R) — SGP 独有 */
 export interface SpellCasts {
-  q: number   // spell1Casts
-  w: number   // spell2Casts
-  e: number   // spell3Casts
-  r: number   // spell4Casts
+  q: number   // Q 技能释放次数 (spell1Casts)
+  w: number   // W 技能释放次数 (spell2Casts)
+  e: number   // E 技能释放次数 (spell3Casts)
+  r: number   // R 技能释放次数 (spell4Casts)
 }
 
+/** 召唤师技能释放次数 (D/F) — SGP 独有 */
 export interface SummonerCasts {
-  d: number   // summoner1Casts
-  f: number   // summoner2Casts
+  d: number   // D 召唤师技能释放次数 (summoner1Casts)
+  f: number   // F 召唤师技能释放次数 (summoner2Casts)
 }
 
+/** 信号次数 (14 种) — SGP 独有 */
 export interface Pings {
-  all_in: number
-  assist: number
-  bait: number
-  basic: number
-  command: number
-  danger: number
-  enemy_missing: number
-  enemy_vision: number
-  get_back: number
-  hold: number
-  need_vision: number
-  on_my_way: number
-  push: number
-  vision_cleared: number
+  all_in: number         // 冲锋/全力进攻
+  assist: number         // 请求协助
+  bait: number           // 诱饵
+  basic: number          // 基础信号
+  command: number        // 指令
+  danger: number         // 危险
+  enemy_missing: number  // 敌人消失
+  enemy_vision: number   // 发现敌方视野
+  get_back: number       // 撤退
+  hold: number           // 原地待命
+  need_vision: number    // 请求视野
+  on_my_way: number      // 正在路上
+  push: number           // 推进
+  vision_cleared: number // 视野已清除
 }
 
+/** 团队贡献 — SGP 独有 */
 export interface TeamContribution {
-  damage_shielded: number           // totalDamageShieldedOnTeammates
-  heals_on_teammates: number        // totalHealsOnTeammates
-  objectives_stolen: number         // objectivesStolen
-  objectives_stolen_assists: number // objectivesStolenAssists
+  damage_shielded: number            // 为队友吸收伤害（护盾/减伤）
+  heals_on_teammates: number         // 为队友治疗量
+  objectives_stolen: number          // 偷龙/偷男爵成功次数
+  objectives_stolen_assists: number  // 偷龙/偷男爵助攻次数
 }
 
+/** 时间分解 — SGP 独有 */
 export interface TimeBreakdown {
-  total_time_dead: number  // totalTimeSpentDead
-  time_played: number      // timePlayed
+  total_time_dead: number  // 总死亡时间（秒）
+  time_played: number      // 实际游戏时间（秒，不含加载/暂停）
 }
 
 export interface PlayerData {
