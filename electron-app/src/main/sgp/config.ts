@@ -4,7 +4,9 @@
  * 查找优先级:
  *   1. 内置 tencent-servers.json 精确匹配
  *   2. 动态拼域名 fallback — {zone}-sgp.lol.qq.com:21019
- *   3. 动态拼域名 fallback — {zone}-k8s-sgp.lol.qq.com:21019
+ *
+ * Note: 另有 k8s 域名模式 {zone}-k8s-sgp.lol.qq.com:21019 可作为第三级 fallback，
+ *       待确认该模式可用后，将下方注释中的 URL 加入返回值列表。
  */
 
 import path from 'path'
@@ -42,7 +44,8 @@ export function resolveSgpBaseUrl(rsoPlatformId: string): string {
 
   // 动态拼域名 fallback
   const zone = serverId.replace('TENCENT_', '').toLowerCase()
-  // 先尝试直连模式
+  // 一级 fallback — 直连模式
+  // return `https://${zone}-k8s-sgp.lol.qq.com:21019`  // k8s 模式（待启用）
   return `https://${zone}-sgp.lol.qq.com:21019`
 }
 
