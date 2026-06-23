@@ -44,6 +44,10 @@ function errMsg(err: unknown): string {
 const PAGE_SIZE = 500
 /** 目标拉取的对局总数上限（安全阀，分页在 LCU 返回空时自动停止） */
 const MAX_FETCH_COUNT = 1000
+/** SGP 单次请求最大场数（避免超过服务端限制） */
+const SGP_PAGE_SIZE = 200
+/** SGP 目标拉取上限（SGP 无硬上限，此值为用户体验限制） */
+const SGP_MAX_GAMES = 500
 
 // ═══════════════════════════════════════════════════════════
 // 分页拉取
@@ -475,6 +479,37 @@ function buildMatchListData(
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// SGP 分页辅助
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * SGP 分页拉取，突破单次请求可能的上限（通常 200 场/次）。
+ * 循环请求直到达到 maxGames 或 SGP 返回空列表。
+ * SGP 无硬上限，此函数确保安全分页 + 自动终止。
+ */
+async function fetchSgpGamesPaginated(
+  sgp: SgpManager,
+  puuid: string,
+  maxGames: number,
+): Promise<{ summaries: GameSummary[]; records: GameRecord[] }> {
+  const allSummaries: GameSummary[] = []
+  const allRecords: GameRecord[] = []
+  let start = 0
+
+  while (allSummaries.length < maxGames) {
+    const count = Math.min(SGP_PAGE_SIZE, maxGames - allSummaries.length)
+    const { summaries, records } = await sgp.fetchGames(puuid, start, count)
+    if (summaries.length === 0) break
+    allSummaries.push(...summaries)
+    allRecords.push(...records)
+    start += count
+    if (summaries.length < count) break  // 返回少于请求 = 已到末页
+  }
+
+  return { summaries: allSummaries, records: allRecords }
+}
+
 export async function fetchMatchList(
   client: LcuHttpClient,
   _page: number = 1,
@@ -501,8 +536,8 @@ export async function fetchMatchList(
   if (sgp.available) {
     try {
       console.log('[LCU:MAIN] fetch-match-list: trying SGP...')
-      const { summaries, records } = await sgp.fetchGames(puuid, 0, 200)
-      console.log(`[LCU:MAIN] SGP fetch-match-list: ${summaries.length} 场`)
+      const { summaries, records } = await fetchSgpGamesPaginated(sgp, puuid, SGP_MAX_GAMES)
+      console.log(`[LCU:MAIN] SGP fetch-match-list: ${summaries.length} 场 (上限 ${SGP_MAX_GAMES})`)
 
       const result: MatchListData = {
         summoner: summonerInfo,
@@ -564,8 +599,8 @@ export async function fetchMatchListForPlayer(
   const sgp = SgpManager.instance
   if (sgp.available) {
     try {
-      const { summaries, records } = await sgp.fetchGames(targetPuuid, 0, 200)
-      console.log(`[LCU:MAIN] SGP fetchMatchListForPlayer ${summonerName}: ${summaries.length} 场`)
+      const { summaries, records } = await fetchSgpGamesPaginated(sgp, targetPuuid, SGP_MAX_GAMES)
+      console.log(`[LCU:MAIN] SGP fetchMatchListForPlayer ${summonerName}: ${summaries.length} 场 (上限 ${SGP_MAX_GAMES})`)
 
       const result: MatchListData = {
         summoner: summonerInfo,
