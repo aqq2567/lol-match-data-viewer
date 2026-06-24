@@ -244,6 +244,7 @@ const advancedMetricRanking = computed<MetricRankEntry[]>(() => {
     key,
     id => gds.champions[id]?.roles || [],
     getRoleName,
+    selectedCategory.value.getter,
   )
 })
 

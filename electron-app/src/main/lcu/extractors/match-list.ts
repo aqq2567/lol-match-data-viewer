@@ -8,7 +8,7 @@
  */
 import { LcuHttpClient } from '../client'
 import { DETAIL_CONCUR } from '../concurrency'
-import { saveGameSummaries, getRecentGameSummaries, saveGameDetailsBatch, getGameDetailsBatch } from '../../db/games'
+import { saveGameSummaries, saveGameDetailsBatch, getGameDetailsBatch } from '../../db/games'
 import type {
   MatchListData,
   GameSummary,
@@ -44,10 +44,6 @@ function errMsg(err: unknown): string {
 const PAGE_SIZE = 500
 /** 目标拉取的对局总数上限（安全阀，分页在 LCU 返回空时自动停止） */
 const MAX_FETCH_COUNT = 1000
-/** SGP 单次请求最大场数（避免超过服务端限制） */
-const SGP_PAGE_SIZE = 200
-/** SGP 目标拉取上限（SGP 无硬上限，此值为用户体验限制） */
-const SGP_MAX_GAMES = 500
 
 // ═══════════════════════════════════════════════════════════
 // 分页拉取
@@ -480,43 +476,70 @@ function buildMatchListData(
 }
 
 // ═══════════════════════════════════════════════════════════
-// SGP 分页辅助
+// 数据源策略：SGP → LCU 降级路由
+//
+// 两个数据源并行实现同一契约：
+//   fetchFromSgp() → MatchListData | null  (不可用时返回 null)
+//   fetchFromLcu() → MatchListData           (始终可用)
+//
+// 路由器先尝试 SGP，失败/null 则降级到 LCU。
+// SGP 分页逻辑在 SgpManager.fetchGamesPaginated() 中，
+// LCU 分页逻辑在 fetchAllSummaries() + loadDetailMap() 中。
 // ═══════════════════════════════════════════════════════════
 
-/**
- * SGP 分页拉取，突破单次请求可能的上限（通常 200 场/次）。
- * 循环请求直到达到 maxGames 或 SGP 返回空列表。
- * SGP 无硬上限，此函数确保安全分页 + 自动终止。
- */
-async function fetchSgpGamesPaginated(
-  sgp: SgpManager,
+/** SGP 数据源：分页拉取 + 组装 MatchListData + 持久化。不可用时返回 null。 */
+async function fetchFromSgp(
   puuid: string,
-  maxGames: number,
-): Promise<{ summaries: GameSummary[]; records: GameRecord[] }> {
-  const allSummaries: GameSummary[] = []
-  const allRecords: GameRecord[] = []
-  let start = 0
-  let page = 0
+  summonerInfo: SummonerInfo,
+  ranked: any,
+): Promise<MatchListData | null> {
+  const sgp = SgpManager.instance
+  if (!sgp.available) return null
 
-  while (allSummaries.length < maxGames) {
-    page++
-    const count = Math.min(SGP_PAGE_SIZE, maxGames - allSummaries.length)
-    console.log(`[SGP:PAGE] 第 ${page} 页: startIndex=${start} count=${count}`)
-    const { summaries, records } = await sgp.fetchGames(puuid, start, count)
-    console.log(`[SGP:PAGE] 第 ${page} 页返回: ${summaries.length} 场 (累计 ${allSummaries.length + summaries.length})`)
-    if (summaries.length === 0) break
-    allSummaries.push(...summaries)
-    allRecords.push(...records)
-    start += count
-    if (summaries.length < count) {
-      console.log(`[SGP:PAGE] 返回 ${summaries.length} < 请求 ${count}，已到末页，停止分页`)
-      break
+  try {
+    console.log('[LCU:MAIN] data-source=SGP...')
+    const { summaries, records } = await sgp.fetchGamesPaginated(puuid)
+    console.log(`[LCU:MAIN] SGP returned ${summaries.length} 场`)
+
+    const result: MatchListData = {
+      summoner: summonerInfo,
+      ranked: extractRankedData(ranked),
+      totalGames: summaries.length,
+      pageSize: 0,
+      games: summaries,
     }
-  }
 
-  console.log(`[SGP:PAGE] 分页完成: ${page} 页共 ${allSummaries.length} 场`)
-  return { summaries: allSummaries, records: allRecords }
+    try { saveGameSummaries(puuid, result.games) } catch { /* 降级 */ }
+    try { saveGameDetailsBatch(records.map(r => ({ gameId: r.game_id, detail: r as any }))) } catch { /* 降级 */ }
+    return result
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[LCU:MAIN] SGP failed (${msg}), falling back to LCU`)
+    return null
+  }
 }
+
+/** LCU 数据源：分页拉取 + 详情补载 + 组装 MatchListData。始终返回有效数据。 */
+async function fetchFromLcu(
+  client: LcuHttpClient,
+  puuid: string,
+  summonerInfo: SummonerInfo,
+  ranked: any,
+  label: string = '详情补载',
+): Promise<MatchListData> {
+  const { summaries, totalGames } = await fetchAllSummaries(client, puuid)
+
+  console.log(
+    `[LCU:MAIN] data-source=LCU: 分页完成 共 ${summaries.length} 场摘要 (API gameCount=${totalGames})`
+  )
+
+  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), label)
+  return buildMatchListData(summaries, detailMap, puuid, summonerInfo, extractRankedData(ranked), totalGames)
+}
+
+// ═══════════════════════════════════════════════════════════
+// 公开 API
+// ═══════════════════════════════════════════════════════════
 
 export async function fetchMatchList(
   client: LcuHttpClient,
@@ -539,45 +562,12 @@ export async function fetchMatchList(
     profileIconId: summoner.profileIconId || 0,
   }
 
-  // ── 尝试 SGP ──
-  const sgp = SgpManager.instance
-  if (sgp.available) {
-    try {
-      console.log('[LCU:MAIN] fetch-match-list: trying SGP...')
-      const { summaries, records } = await fetchSgpGamesPaginated(sgp, puuid, SGP_MAX_GAMES)
-      console.log(`[LCU:MAIN] SGP fetch-match-list: ${summaries.length} 场 (上限 ${SGP_MAX_GAMES})`)
+  // ── SGP → LCU 降级路由 ──
+  const result = await fetchFromSgp(puuid, summonerInfo, ranked)
+    ?? await fetchFromLcu(client, puuid, summonerInfo, ranked)
 
-      const result: MatchListData = {
-        summoner: summonerInfo,
-        ranked: extractRankedData(ranked),
-        totalGames: summaries.length,
-        pageSize: 0,
-        games: summaries,
-      }
-
-      try { saveGameSummaries(puuid, result.games) } catch { /* 降级 */ }
-      try { saveGameDetailsBatch(records.map(r => ({ gameId: r.game_id, detail: r as any }))) } catch { /* 降级 */ }
-      return result
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`[LCU:MAIN] SGP failed (${msg}), falling back to LCU`)
-    }
-  }
-
-  // ── LCU fallback（现有逻辑） ──
-  const { summaries, totalGames } = await fetchAllSummaries(client, puuid)
-
-  console.log(
-    `[LCU:MAIN] fetch-match-list: 分页完成 共 ${summaries.length} 场摘要 (API gameCount=${totalGames})`
-  )
-
-  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), '详情补载')
-
-  const result = buildMatchListData(summaries, detailMap, puuid, summonerInfo, extractRankedData(ranked), totalGames)
-  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${result.games.length} 场 (API gameCount=${totalGames})`)
-
+  console.log(`[LCU:MAIN] fetch-match-list: 最终 ${result.games.length} 场`)
   try { saveGameSummaries(puuid, result.games) } catch { /* 写入失败静默降级 */ }
-
   return result
 }
 
@@ -603,41 +593,9 @@ export async function fetchMatchListForPlayer(
     profileIconId,
   }
 
-  // ── 尝试 SGP ──
-  const sgp = SgpManager.instance
-  if (sgp.available) {
-    try {
-      const { summaries, records } = await fetchSgpGamesPaginated(sgp, targetPuuid, SGP_MAX_GAMES)
-      console.log(`[LCU:MAIN] SGP fetchMatchListForPlayer ${summonerName}: ${summaries.length} 场 (上限 ${SGP_MAX_GAMES})`)
-
-      const result: MatchListData = {
-        summoner: summonerInfo,
-        ranked: extractRankedData(ranked),
-        totalGames: summaries.length,
-        pageSize: 0,
-        games: summaries,
-      }
-
-      try { saveGameSummaries(targetPuuid, result.games) } catch { /* 降级 */ }
-      try { saveGameDetailsBatch(records.map(r => ({ gameId: r.game_id, detail: r as any }))) } catch { /* 降级 */ }
-      return result
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`[LCU:MAIN] SGP for player ${summonerName} failed (${msg}), falling back to LCU`)
-    }
-  }
-
-  // ── LCU fallback（现有逻辑，保持不变） ──
-  const { summaries, totalGames } = await fetchAllSummaries(client, targetPuuid)
-
-  console.log(
-    `[LCU:MAIN] fetchMatchListForPlayer ${summonerName}: ` +
-    `分页完成 共 ${summaries.length} 场摘要 gameCount=${totalGames}`
-  )
-
-  const detailMap = await loadDetailMap(client, summaries.map(g => g.gameId), `详情补载 (${summonerName})`)
-
-  const result = buildMatchListData(summaries, detailMap, targetPuuid, summonerInfo, extractRankedData(ranked), totalGames)
+  // ── SGP → LCU 降级路由 ──
+  const result = await fetchFromSgp(targetPuuid, summonerInfo, ranked)
+    ?? await fetchFromLcu(client, targetPuuid, summonerInfo, ranked, `详情补载 (${summonerName})`)
 
   // LCU 摘要 API 对不同玩家返回的对局可能不一致（非当前玩家可能缺失部分对局）。
   // 从共享详情缓存中查找目标玩家参与但未出现在摘要中的对局，补入结果。

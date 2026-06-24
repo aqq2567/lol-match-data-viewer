@@ -187,7 +187,7 @@ export function extractPlayerStats(p: SgpParticipant): PlayerStats {
     pings: {
       all_in: safeInt(p.allInPings),
       assist: safeInt(p.assistMePings),
-      bait: safeInt(p.basicPings),              // 语义最近似
+      bait: safeInt(p.baitPings),
       basic: safeInt(p.basicPings),
       command: safeInt(p.commandPings),
       danger: safeInt(p.dangerPings),

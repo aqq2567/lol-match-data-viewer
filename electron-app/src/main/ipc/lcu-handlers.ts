@@ -12,38 +12,10 @@ import {
   fetchGameData,
 } from '../lcu/extractors'
 import type { LcuConnectionInfo, MatchData, MatchListData, GameRecord, GameDataCache, LcuSummoner } from '@shared/types'
+import { fetchEntitlementsToken } from '../sgp/token'
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
-}
-
-/**
- * 获取 SGP entitlements token (JWT) 用于后续 SGP API 调用的 Bearer 认证
- */
-export async function fetchEntitlementsToken(): Promise<string | null> {
-  try {
-    const conn = await findLolClient()
-    if (!conn) {
-      console.warn('[SGP] No LCU connection — cannot fetch entitlements token')
-      return null
-    }
-
-    const client = new LcuHttpClient(conn)
-    const resp = await client.get<{ accessToken: string; token: string; subject: string }>(
-      '/entitlements/v1/token'
-    )
-    const token = resp?.accessToken || ''
-    if (token) {
-      console.log('[SGP] entitlements token acquired')
-    } else {
-      console.warn('[SGP] entitlements token response had no accessToken field')
-    }
-    return token || null
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn(`[SGP] Failed to fetch entitlements token: ${msg}`)
-    return null
-  }
 }
 
 export interface LcuHandlersContext {

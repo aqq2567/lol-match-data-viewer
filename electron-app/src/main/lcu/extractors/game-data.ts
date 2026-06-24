@@ -3,6 +3,7 @@
  */
 import { LcuHttpClient } from '../client'
 import { DETAIL_CONCUR, batchAsync } from '../concurrency'
+import { saveGameDetailsBatch, getGameDetailsBatch } from '../../db/games'
 import type {
   GameRecord,
   CherrySubteamData,
@@ -32,7 +33,34 @@ export async function fetchGameDetailsBatched(
   client: LcuHttpClient,
   gameIds: number[]
 ): Promise<GameRecord[]> {
-  const results = await batchAsync(gameIds, DETAIL_CONCUR, async (gameId) => {
+  // ═══════════════════════════════════════════════════════════
+  // 第一级：DB 缓存 — SGP 路径已持久化完整 GameRecord（含 spell_casts 等字段）
+  // GameRecord 可通过 game_id（snake_case）与 LCU 原始 Game（camelCase）区分
+  // ═══════════════════════════════════════════════════════════
+  const dbCached = getGameDetailsBatch(gameIds)
+  const dbResults: GameRecord[] = []
+  const cachedIds = new Set<number>()
+
+  for (const [gid, detail] of dbCached) {
+    const d = detail as Record<string, unknown>
+    if (d && typeof d === 'object' && 'game_id' in d) {
+      dbResults.push(d as unknown as GameRecord)
+      cachedIds.add(gid)
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 第二级：LCU API — 仅拉取 DB 未命中或 LCU 格式缓存的对局
+  // ═══════════════════════════════════════════════════════════
+  const uncached = gameIds.filter(id => !cachedIds.has(id))
+  if (uncached.length === 0) {
+    console.log(`[LCU:MAIN] 详情: ${gameIds.length} 场全部命中 DB 缓存（SGP），跳过 LCU 拉取`)
+    return dbResults
+  }
+
+  console.log(`[LCU:MAIN] 详情: DB 缓存 ${cachedIds.size}/${gameIds.length}, LCU 拉取 ${uncached.length}`)
+
+  const lcuResults = await batchAsync(uncached, DETAIL_CONCUR, async (gameId) => {
       try {
         const detail = await client.getGameDetail(gameId)
 
@@ -43,14 +71,12 @@ export async function fetchGameDetailsBatched(
 
         const bluePlayers: PlayerData[] = []
         const redPlayers: PlayerData[] = []
-        const usedChampionIds: number[] = []
         const allPlayers: PlayerData[] = []
 
         for (const p of detail?.participants || []) {
           const pid = p.participantId
           const playerInfo = identities[pid] || {}
           const cid = p.championId
-          usedChampionIds.push(cid)
 
           const playerData: PlayerData = {
             ...extractPlayerIdentity(playerInfo),
@@ -120,11 +146,19 @@ export async function fetchGameDetailsBatched(
       }
     })
 
-  const valid = results.filter(Boolean) as GameRecord[]
-  if (valid.length < gameIds.length) {
-    console.warn(`[LCU:MAIN] ${gameIds.length} 场中成功拉取 ${valid.length} 场, 跳过 ${gameIds.length - valid.length} 场`)
+  const valid = lcuResults.filter(Boolean) as GameRecord[]
+  if (valid.length < uncached.length) {
+    console.warn(`[LCU:MAIN] ${uncached.length} 场中成功拉取 ${valid.length} 场, 跳过 ${uncached.length - valid.length} 场`)
   }
-  return valid
+
+  // 异步持久化新拉取的数据到 DB（后续分析可直接命中缓存，不阻塞本次返回）
+  if (valid.length > 0) {
+    try {
+      saveGameDetailsBatch(valid.map(r => ({ gameId: r.game_id, detail: r as any })))
+    } catch { /* 降级 */ }
+  }
+
+  return [...dbResults, ...valid]
 }
 
 // ═══════════════════════════════════════════════════════════

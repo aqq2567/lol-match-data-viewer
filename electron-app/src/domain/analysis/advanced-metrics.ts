@@ -1,10 +1,11 @@
 /**
  * 分析领域 — 高阶指标计算
- * 角色率（6 种）+ 伤害比（5 种），纯计算，可直接单元测试
+ * 角色率（6 种）+ 伤害比（5 种）+ 通用 getter 型指标，纯计算，可直接单元测试
  */
 
-import type { GameRecord } from '@shared/types'
+import type { GameRecord, PlayerStats } from '@shared/types'
 import type { MetricRankEntry } from '@domain/analysis/types'
+import { computeMetricRanking } from './aggregation'
 
 /** 角色率指标 key → 角色标签 */
 const ROLE_RATE_KEYS = new Set([
@@ -23,20 +24,26 @@ const DMG_RATIO_KEYS = new Set([
 ])
 
 /**
- * 按高阶指标 key 计算玩家排名
- * @param championRoles 根据 championId 返回角色标签列表（如 ['Fighter', 'Tank']）
+ * 按高阶指标 key 计算玩家排名。
+ * 角色率 / 伤害比使用专用算法；其他 key 使用 getter 通用聚合（若提供 simpleGetter）。
+ * @param championRoles 根据 championId 返回角色标签列表
+ * @param simpleGetter 简单指标的 getter（非角色率/伤害比时使用，未提供则返回 []）
  */
 export function computeAdvancedMetricRanking(
   games: GameRecord[],
   key: string,
   championRoles: (championId: number) => string[],
   getRoleName: (tag: string) => string,
+  simpleGetter?: (stats: PlayerStats) => number,
 ): MetricRankEntry[] {
   if (ROLE_RATE_KEYS.has(key)) {
     return computeRoleRateRanking(games, key, championRoles, getRoleName)
   }
   if (DMG_RATIO_KEYS.has(key)) {
     return computeDamageRatioRanking(games, key)
+  }
+  if (simpleGetter) {
+    return computeMetricRanking(games, simpleGetter)
   }
   return []
 }
