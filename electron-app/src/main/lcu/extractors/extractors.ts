@@ -166,7 +166,7 @@ export function extractStatsFull(participant: any): PlayerStats {
     was_severe_transgressor: stats.wasSevereTransgressor || false,
     win: stats.win || false,
     // SGP 独有字段 — LCU 降级时填默认值
-    spell_casts: { q: 0, w: 0, e: 0, r: 0 },
+    challenges: {},
     summoner_casts: { d: 0, f: 0 },
     pings: {
       all_in: 0, assist: 0, bait: 0, basic: 0, command: 0,

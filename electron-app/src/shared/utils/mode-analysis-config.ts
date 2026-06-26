@@ -89,6 +89,8 @@ const ALL_ADVANCED_METRICS: MetricDef[] = [
   { key: 'assassinRate', label: '刺客率', colorClass: 'cat-blue', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
   { key: 'marksmanRate', label: '射手率', colorClass: 'cat-green', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
   { key: 'supportRate', label: '辅助率', colorClass: 'cat-gold', getter: () => 0, fmt: (v) => (v * 100).toFixed(0) + '%' },
+  { key: 'teamShield', label: '团队护盾', colorClass: 'cat-green', getter: (s) => s.team_contribution.damage_shielded, fmt: (v) => fmtNum(v) },
+  { key: 'enemyMissingPings', label: '敌人消失信号', colorClass: 'cat-blue', getter: (s) => s.pings.enemy_missing, fmt: (v) => String(Math.round(v)) },
 ]
 
 const DEFAULT_PODIUM_TITLES: Record<string, string> = {
@@ -118,6 +120,8 @@ const DEFAULT_ADVANCED_BEST: Record<string, string> = {
   assassinRate: '暗杀星',
   marksmanRate: '神枪手',
   supportRate: '团队支柱',
+  teamShield: '团队之盾',
+  enemyMissingPings: '战术雷达',
 }
 
 const DEFAULT_ADVANCED_WORST: Record<string, string> = {
@@ -133,6 +137,8 @@ const DEFAULT_ADVANCED_WORST: Record<string, string> = {
   assassinRate: '光明正大',
   marksmanRate: '近视眼',
   supportRate: '独行侠',
+  teamShield: '自顾不暇',
+  enemyMissingPings: '沉默是金',
 }
 
 /** 默认 config（未匹配到的模式回退到此） */

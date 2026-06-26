@@ -183,8 +183,8 @@ export interface SgpParticipant {
   spell4Casts: number          // R 技能释放次数
   summoner1Casts: number       // D 召唤师技能释放次数
   summoner2Casts: number       // F 召唤师技能释放次数
-  spell1Id: number             // Q 技能 ID（召唤师技能格1）
-  spell2Id: number             // E 技能 ID（召唤师技能格2）
+  spell1Id: number             // 召唤师技能1 ID（D键，如闪现/引燃）
+  spell2Id: number             // 召唤师技能2 ID（F键）
 
   // ═══ 信号（SGP 独有 — 14 种）═══
   allInPings: number           // 正在路上+冲锋信号
@@ -246,10 +246,206 @@ export interface SgpParticipant {
   playerAugment4: number       // 海克斯增幅 4
   playerAugment5: number       // 海克斯增幅 5
   playerAugment6: number       // 海克斯增幅 6
-  challenges: Record<string, number> // 挑战数据（SGP 独有 key-value 字典）
+  challenges: Challenges           // 挑战数据（130+ 字段，见 Challenges 接口）
+  missions: SgpMissions            // 任务/评分数据（PlayerScore0-11 + 任务统计）
 }
 
-/** 符文配置 — 嵌套树结构，需展平为 flat perks[] 数组 */
+// ═══════════════════════════════════════════════════════════════
+// 挑战数据 — SGP 在每局对局中提供的 130+ 深度统计字段
+// 摘自 Riot match-v5 challenges，由 SGP 以 camelCase 键名返回
+// ═══════════════════════════════════════════════════════════════
+
+export interface Challenges {
+  // ── 基础战斗 ──
+  abilityUses: number                     // 技能释放总次数（Q+W+E+R 合计）
+  kills: number                            // （冗余）击杀数
+  takedowns: number                        // 参与击杀总数（击杀+助攻）
+  multikills: number                       // 多杀事件次数（双杀及以上）
+  killsNearEnemyTurret: number             // 在敌方塔附近击杀
+  killsUnderOwnTurret: number              // 在己方塔下击杀
+  killsOnRecentlyHealedByAramPack: number  // 击杀刚吃大乱斗血包的敌人
+  killsWithHelpFromEpicMonster: number     // 在史诗野怪帮助下击杀
+  outnumberedKills: number                 // 以少打多击杀
+  soloKills: number                        // 单杀次数
+  doubleAces: number                       // 双团灭（双方同时团灭）
+  flawlessAces: number                     // 完美团灭（己方无阵亡的团灭）
+  acesBefore15Minutes: number              // 15分钟前团灭对方
+  fullTeamTakedown: number                 // 五人都参与击杀同一目标
+  killedChampTookFullTeamDamageSurvived: number  // 承受全队伤害后反杀
+  killAfterHiddenWithAlly: number          // 与队友一起从隐藏状态出击击杀
+  immobilizeAndKillWithAlly: number        // 定身后与队友配合击杀
+  pickKillWithAlly: number                 // 与队友配合抓单击杀
+
+  // ── 击杀连环 ──
+  killingSprees: number                    // 连杀次数（≥3 击杀不间断）
+  legendaryCount: number                   // 传说级表现次数（≥8 连杀）
+  multiKillOneSpell: number                // 单技能多杀
+  multikillsAfterAggressiveFlash: number   // 激进闪现后多杀
+
+  // ── 伤害与输出 ──
+  damagePerMinute: number                  // 每分钟伤害输出
+  teamDamagePercentage: number             // 团队伤害占比（0-1）
+  damageTakenOnTeamPercentage: number      // 团队承伤占比（0-1）
+  highestChampionDamage?: number           // 全场最高伤害值
+  tookLargeDamageSurvived: number         // 承受大量伤害后存活
+
+  // ── 经济 ──
+  goldPerMinute: number                    // 每分钟经济
+  bountyGold: number                       // 赏金获得（击杀赏金/推塔/补刀奖励）
+
+  // ── 技能精准 ──
+  skillshotsHit: number                    // 非指向技能命中次数
+  skillshotsDodged: number                 // 躲避非指向技能次数
+  landSkillShotsEarlyGame: number          // 对线期技能命中次数
+  dodgeSkillShotsSmallWindow: number       // 短时间窗口内连续躲避技能
+  snowballsHit: number                     // 雪球命中次数（大乱斗）
+
+  // ── 视野 ──
+  visionScorePerMinute: number             // 每分钟视野得分
+  controlWardsPlaced: number               // 控制守卫（真眼）放置
+  stealthWardsPlaced: number               // 隐形守卫（假眼）放置
+  wardTakedowns: number                    // 排眼次数
+  wardTakedownsBefore20M: number           // 20分钟前排眼次数
+  wardsGuarded: number                     // 守卫保护次数（在守卫附近击杀敌人）
+  twoWardsOneSweeperCount: number          // 同时持有两假眼一扫描器的次数
+  controlWardTimeCoverageInRiverOrEnemyHalf?: number // 河/敌方半区真眼覆盖率
+  visionScoreAdvantageLaneOpponent?: number // 对线期视野领先
+
+  // ── 史诗野怪 ──
+  baronTakedowns: number                   // 大龙击杀参与
+  dragonTakedowns: number                  // 小龙击杀参与
+  teamBaronKills: number                   // 团队大龙击杀次数
+  teamElderDragonKills: number             // 团队远古龙击杀次数
+  teamRiftHeraldKills: number              // 团队峡谷先锋击杀次数
+  riftHeraldTakedowns: number              // 峡谷先锋击杀参与
+  voidMonsterKill: number                  // 虚空巢虫击杀
+  scuttleCrabKills: number                 // 河道迅捷蟹击杀
+  epicMonsterSteals: number                // 史诗野怪偷取（抢龙）
+  epicMonsterStolenWithoutSmite: number    // 无惩戒抢龙
+  epicMonsterKillsNearEnemyJungler: number // 在敌方打野附近击杀史诗野怪
+  epicMonsterKillsWithin30SecondsOfSpawn: number // 史诗野怪刷新30秒内击杀
+  elderDragonKillsWithOpposingSoul: number // 对方有龙魂时击杀远古龙
+  elderDragonMultikills: number            // 远古龙 Buff 期间多杀
+  soloBaronKills: number                   // 单杀大龙
+  perfectDragonSoulsTaken: number          // 完美龙魂（己方拿全部小龙）
+  initialBuffCount: number                 // 首个 Buff 被哪方拿到（初始 Buff 计数）
+  initialCrabCount: number                 // 首个河蟹被哪方拿到
+
+  // ── 防御塔 ──
+  turretTakedowns: number                  // 防御塔拆除参与
+  turretPlatesTaken: number                // 镀层击破次数
+  firstTurretKilled: number                // 参与首塔击杀（0/1）
+  firstTurretKilledTime?: number           // 首塔被摧毁时间（秒）
+  takedownOnFirstTurret: number            // 参与首塔击杀（含助攻）
+  quickFirstTurret: number                 // 快速首塔
+  outerTurretExecutesBefore10Minutes: number // 10分钟前推掉外塔
+  kTurretsDestroyedBeforePlatesFall: number // 镀层掉落前摧毁的塔数
+  multiTurretRiftHeraldCount: number       // 峡谷先锋协助推多塔
+  turretsTakenWithRiftHerald: number       // 峡谷先锋撞塔次数
+  soloTurretsLategame?: number             // 后期单拆塔
+
+  // ── 对线/前期 ──
+  jungleCsBefore10Minutes: number          // 10分钟前野怪补刀
+  laneMinionsFirst10Minutes: number        // 前10分钟线上补刀
+  earlyLaningPhaseGoldExpAdvantage?: number   // 对线期金钱经验领先
+  laningPhaseGoldExpAdvantage?: number     // 对线期综合优劣势
+  maxCsAdvantageOnLaneOpponent?: number    // 对线最大补刀领先
+  maxLevelLeadLaneOpponent?: number        // 对线最大等级领先
+  killsOnOtherLanesEarlyJungleAsLaner?: number // 作为线上选手前期去其他路击杀
+  getTakedownsInAllLanesEarlyJungleAsLaner?: number // 前期各线都有参与击杀
+  junglerKillsEarlyJungle?: number         // 打野前期击杀
+  killsOnLanersEarlyJungleAsJungler?: number // 打野前期击杀线上选手
+  junglerTakedownsNearDamagedEpicMonster: number // 打野在残血史诗野怪附近参与击杀
+
+  // ── 特色机制 ──
+  blastConeOppositeOpponentCount: number   // 爆炸果实炸到对面
+  dancedWithRiftHerald: number             // 与峡谷先锋共舞（在附近击杀）
+  poroExplosions: number                   // 魄罗爆炸（大乱斗雪球相关）
+  saveAllyFromDeath: number                // 救下濒死队友
+  knockEnemyIntoTeamAndKill: number        // 将敌人推入己方团队后击杀
+  twentyMinionsIn3SecondsCount: number     // 3秒内补20刀次数
+  takedownsInAlcove: number                // 在凹室（上路/下路凹室）参与击杀
+  takedownsInEnemyFountain: number         // 在敌方泉水中参与击杀
+  enemyChampionImmobilizations: number     // 控制敌方英雄次数
+  outnumberedNexusKill: number             // 以少打多摧毁基地
+  unseenRecalls: number                    // 未被发现的回城次数
+  fistBumpParticipation: number            // 碰拳参与（队伍互动表情）
+  teleportTakedowns?: number               // 传送后参与击杀
+  hadAfkTeammate?: number                  // 有挂机队友（0/1）
+
+  // ── 生存与韧性 ──
+  kda: number                              // KDA 比率
+  killParticipation: number                // 击杀参与率（0-1）
+  deathsByEnemyChamps: number             // 被敌方英雄击杀次数
+  survivedSingleDigitHpCount: number       // 个位数血量逃生次数
+  survivedThreeImmobilizesInFight: number  // 单次战斗中被控3次后存活
+  effectiveHealAndShielding: number        // 有效治疗与护盾值
+  quickCleanse: number                     // 被控后快速解除（净化/水银/坩埚）
+  completeSupportQuestInTime: number       // 辅助任务按时完成
+  fasterSupportQuestCompletion?: number    // 比对手更快完成辅助任务
+  longstTimeSpentLiving: number            // 最长连续存活时间（秒）
+
+  // ── 偷野/反野 ──
+  alliedJungleMonsterKills: number         // 己方野怪击杀
+  enemyJungleMonsterKills: number          // 敌方野怪击杀（反野）
+  moreEnemyJungleThanOpponent: number     // 比对方打野刷了更多敌方野区
+  buffsStolen: number                      // 偷取 Buff 次数
+
+  // ── 特殊物品 ──
+  mejaisFullStackInTime: number            // 杀人书/杀人戒满层
+  legendaryItemUsed: (number | number)[]   // 传说装备使用（ID 或 [ID, 时间]）
+
+  // ── 其他 ──
+  baronBuffGoldAdvantageOverThreshold?: number // 大龙 Buff 期间经济优势
+  gameLength: number                       // 游戏时长（秒）
+  hadOpenNexus: number                     // 曾暴露基地（0/1）
+  lostAnInhibitor: number                  // 丢过水晶（0/1）
+  maxKillDeficit: number                   // 最大击杀差距
+  perfectGame: number                      // 完美比赛（0 死亡 0 丢塔）
+  playedChampSelectPosition?: number       // 是否玩了自己选的位置
+  '12AssistStreakCount': number            // 连续 12 次助攻（无击杀）
+  takedownsAfterGainingLevelAdvantage: number // 等级领先后参与击杀
+  takedownsBeforeJungleMinionSpawn: number // 野怪刷新前参与击杀（一级团）
+  takedownsFirstXMinutes: number           // 前 X 分钟参与击杀
+  InfernalScalePickup: number              // （斗魂竞技场）地狱火鳞片拾取
+
+  // ── 时间类（可选） ──
+  earliestBaron?: number                   // 最早大龙时间（秒）
+  earliestDragonTakedown?: number          // 最早小龙时间（秒）
+  earliestElderDragon?: number             // 最早远古龙时间（秒）
+  fastestLegendary?: number                // 最快传说（秒）
+  highestCrowdControlScore?: number        // 最高控制得分
+  highestWardKills?: number                // 最高排眼数
+  shortestTimeToAceFromFirstTakedown?: number // 从首杀到团灭最短时间（秒）
+  thirdInhibitorDestroyedTime?: number     // 第三路水晶被摧毁时间（秒）
+}
+
+/** 任务/评分数据 — SGP 每局每位玩家独立统计 */
+export interface SgpMissions {
+  Missions_ChampionsKilled: number         // 任务：击杀英雄数
+  Missions_CreepScore: number              // 任务：补刀数
+  Missions_GoldFromStructuresDestroyed: number // 任务：拆塔获得金币
+  Missions_GoldFromTurretPlatesTaken: number   // 任务：镀层获得金币
+  Missions_HealingFromLevelObjects: number     // 任务：治疗/升级道具
+  Missions_MinionsKilled: number           // 任务：小兵击杀
+  Missions_TurretPlatesDestroyed: number   // 任务：镀层摧毁
+  PlayerScore0: number                     // 战斗评分 0
+  PlayerScore1: number                     // 评分 1
+  PlayerScore2: number                     // 评分 2
+  PlayerScore3: number                     // 评分 3
+  PlayerScore4: number                     // 评分 4
+  PlayerScore5: number                     // 评分 5
+  PlayerScore6: number                     // 评分 6
+  PlayerScore7: number                     // 评分 7
+  PlayerScore8: number                     // 评分 8
+  PlayerScore9: number                     // 评分 9
+  PlayerScore10: number                    // 评分 10
+  PlayerScore11: number                    // 评分 11
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 符文配置 — 嵌套树结构，需展平为 flat perks[] 数组
+// ═══════════════════════════════════════════════════════════════
 export interface SgpPerks {
   statPerks: SgpStatPerks      // 符文碎片（攻速/适应之力/抗性）
   styles: SgpPerkStyle[]       // 符文系（主系+副系，各含 4 个选择）

@@ -174,6 +174,9 @@ export function extractPlayerStats(p: SgpParticipant): PlayerStats {
     win: p.win ?? false,
 
     // ── SGP 独有 ──
+    // Challenges 中绝大部分字段是 number，个别字段（如 legendaryItemUsed）是数组
+    // 通过 Record<string, number> 存储所有数值型挑战数据
+    challenges: (p.challenges || {}) as unknown as Record<string, number>,
     spell_casts: {
       q: safeInt(p.spell1Casts),
       w: safeInt(p.spell2Casts),

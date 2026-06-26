@@ -133,7 +133,8 @@ export interface PlayerStats {
   role_bound_item: number      // 【LCU 独有】角色绑定装备
   was_severe_transgressor: boolean // 【LCU 独有】是否严重违规
   win: boolean                 // 胜负
-  // ═══ SGP 独有字段（LCU 降级时为 0/null） ═══
+  // ═══ SGP 独有字段（LCU 降级时为 0/null/{}） ═══
+  challenges: Record<string, number>     // 挑战数据（130+ 字段，含击杀参与率/分均伤害/英雄专属层数等）
   spell_casts: SpellCasts           // 技能释放次数 (Q/W/E/R)
   summoner_casts: SummonerCasts     // 召唤师技能释放次数 (D/F)
   pings: Pings                      // 14 种信号次数

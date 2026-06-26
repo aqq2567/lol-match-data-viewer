@@ -51,20 +51,34 @@ function formatPlayer(p: { summoner_name: string; champion_id: number; stats: Pl
     .map(id => gds.summonerSpells[id!]?.name || id)
     .join('/')
 
+  const spellCastTotal = s.spell_casts.q + s.spell_casts.w + s.spell_casts.e + s.spell_casts.r
+
   const parts = [
     `${p.summoner_name}（${champ}）`,
     `K ${s.kills}/${s.deaths}/${s.assists}（KDA ${kda}）`,
     `伤害 ${s.damage.total_to_champs}（物${s.damage.physical_to_champs}/魔${s.damage.magic_to_champs}/真${s.damage.true_to_champs}）`,
-    `经济 ${s.economy.gold_earned}`,
+    `经济 ${s.economy.gold_earned}（剩余${s.economy.gold_earned - s.economy.gold_spent}）`,
     `补刀 ${s.cs.total}（兵${s.cs.minions}/野${s.cs.neutral_total}）`,
     `视野 ${s.vision.score}`,
     `承伤 ${s.damage.total_taken}`,
     `CC ${s.cc.total_cc_dealt}s`,
     `治疗 ${s.survival.total_heal}`,
     `等级 ${s.champ_level}`,
+    `技能释放 ${spellCastTotal}次（Q${s.spell_casts.q}/W${s.spell_casts.w}/E${s.spell_casts.e}/R${s.spell_casts.r}）`,
     `召唤师技能 ${spells}`,
     `装备: ${items}`,
   ]
+
+  // 关键挑战数据（击杀参与率、分均伤害等）
+  const topChallenges = [
+    s.challenges.killParticipation != null ? `参与率${(s.challenges.killParticipation * 100).toFixed(1)}%` : '',
+    s.challenges.damagePerMinute != null ? `分均伤害${s.challenges.damagePerMinute.toFixed(0)}` : '',
+    s.challenges.goldPerMinute != null ? `分均经济${s.challenges.goldPerMinute.toFixed(0)}` : '',
+    s.challenges.teamDamagePercentage != null ? `团队伤害占比${s.challenges.teamDamagePercentage.toFixed(1)}%` : '',
+    s.challenges.soloKills != null ? `单杀${s.challenges.soloKills}` : '',
+    s.challenges.abilityUses != null ? `技能总次数${s.challenges.abilityUses}` : '',
+  ].filter(Boolean)
+  if (topChallenges.length > 0) parts.push(`进阶: ${topChallenges.join(' | ')}`)
 
   if (augments) parts.push(`海克斯: ${augments}`)
 

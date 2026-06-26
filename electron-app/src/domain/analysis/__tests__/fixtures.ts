@@ -44,6 +44,9 @@ export function makeStats(overrides: Partial<PlayerStats> = {}): PlayerStats {
     role_bound_item: 0,
     was_severe_transgressor: false,
     win: true,
+    // SGP 独有字段
+    challenges: {},
+    spell_casts: { q: 0, w: 0, e: 0, r: 0 },
     ...overrides,
   }
 }
