@@ -1,0 +1,174 @@
+/* ═══════════════════════════════════════════
+   海斗比赛看板 — 电竞直播风主题
+   深黑底 + 霓虹色条 + 大号数字 + 3列响应式
+   ═══════════════════════════════════════════ */
+
+:root {
+  --bg: #0a0a0f;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.06);
+  --text: #ffffff;
+  --text-secondary: #888888;
+  --text-muted: #555555;
+  --accent: #ff4655;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Microsoft YaHei", sans-serif;
+  min-height: 100vh;
+  padding: 24px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+#header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.header-line {
+  height: 1px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.header-line.top {
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin-bottom: 16px;
+}
+
+.header-line.bottom {
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin-top: 16px;
+}
+
+#round-name {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  text-shadow: 0 0 20px rgba(255, 70, 85, 0.5);
+  text-transform: uppercase;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  letter-spacing: 3px;
+  margin-top: 4px;
+}
+
+.meta-line {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Metrics Grid ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Metric Card ── */
+.metric-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 20px 16px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.metric-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.card-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+}
+
+.card-icon {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.card-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 48px;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-champion {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.card-champion .role {
+  color: var(--text-secondary);
+}
+
+.card-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── MVP Bar ── */
+.mvp-bar {
+  text-align: center;
+  margin-top: 32px;
+  padding: 14px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd700;
+  letter-spacing: 2px;
+  background: rgba(255, 215, 0, 0.06);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  #round-name { font-size: 22px; letter-spacing: 4px; }
+  .card-value { font-size: 36px; }
+}
+
+@media (max-width: 560px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  body { padding: 16px; }
+  #round-name { font-size: 18px; letter-spacing: 3px; }
+  .card-value { font-size: 32px; }
+}
