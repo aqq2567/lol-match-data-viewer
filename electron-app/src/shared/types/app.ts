@@ -451,3 +451,32 @@ export interface GameDataCache {
   queues: Record<number, QueueData>
   augments: Record<number, AugmentData>
 }
+
+// ═══════════════════════════════════════════════════════════
+// 比赛看板导出数据（web-dashboard 与 Electron 之间的唯一契约）
+// ═══════════════════════════════════════════════════════════
+
+export interface DashboardMetricEntry {
+  name: string          // 选手名
+  champion: string      // 使用英雄
+  value: number         // 聚合值（总计或平均）
+  title?: string        // 称号（仅第一名，如"死神降临"）
+  profileIconId?: number // 头像 ID（CommunityDragon CDN）
+}
+
+export interface DashboardMetric {
+  label: string         // 中文标签，如 "击杀王"
+  icon: string          // emoji 图标
+  color: string         // 霓虹强调色 hex
+  ranking: DashboardMetricEntry[]  // Top 3 排名
+}
+
+export interface DashboardData {
+  meta: {
+    round: string       // 轮次名称，如 "第3轮"
+    mode: string        // 游戏模式
+    playerCount: number // 选手数
+    updatedAt: string   // ISO 时间戳
+  }
+  metrics: Record<string, DashboardMetric>  // key → 指标数据
+}

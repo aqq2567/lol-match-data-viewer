@@ -52,6 +52,12 @@
       "addons/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "../web-dashboard",
+        "to": "web-dashboard"
+      }
+    ],
     "asarUnpack": [
       "addons/**/*",
       "node_modules/sql.js/**/*.wasm"

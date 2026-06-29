@@ -34,6 +34,7 @@ interface LcuApi {
   getRecentDates(puuid: string, limit: number): Promise<string[]>
   sgpInit(rsoPlatformId: string): Promise<boolean>
   sgpDestroy(): Promise<void>
+  publishDashboard(data: import('@shared/types').DashboardData): Promise<{ status: string; url?: string; message?: string }>
 }
 
 declare global {

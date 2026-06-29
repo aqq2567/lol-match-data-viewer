@@ -60,6 +60,43 @@
 
       <n-divider />
 
+      <!-- 管理员模式 -->
+      <div class="setting-row">
+        <div class="setting-label">
+          <span class="setting-title">🔐 管理员模式</span>
+          <span class="setting-desc" v-if="adminUnlocked">已解锁 — 发布功能已启用</span>
+          <span class="setting-desc" v-else-if="savedAdminPasswordHash">输入密码以解锁发布功能</span>
+          <span class="setting-desc" v-else>管理员未配置密码，发布功能不可用</span>
+        </div>
+      </div>
+
+      <div class="setting-row" v-if="!adminUnlocked && savedAdminPasswordHash">
+        <n-input
+          type="password"
+          placeholder="输入管理员密码"
+          :value="adminPwdInput"
+          style="width: 200px"
+          size="small"
+          @update:value="adminPwdInput = $event"
+          @keyup.enter="verifyAdmin"
+        />
+        <n-button
+          size="small"
+          type="primary"
+          :disabled="!adminPwdInput"
+          @click="verifyAdmin"
+        >
+          验证
+        </n-button>
+      </div>
+
+      <div class="setting-row" v-if="adminUnlocked">
+        <span style="color: #22c55e; font-size: 13px">✅ 管理员模式已解锁</span>
+        <n-button size="small" type="warning" @click="lockAdmin">锁定</n-button>
+      </div>
+
+      <n-divider />
+
       <!-- 关于 -->
       <div class="about-section">
         <span class="setting-title">关于</span>
@@ -87,6 +124,7 @@
 import { ref, watch } from 'vue'
 import { NModal, NSwitch, NButton, NDivider, NA, NInput, useMessage } from 'naive-ui'
 import { createSettingsRepository } from '@application/ports'
+import { adminUnlocked } from '@/stores/admin-mode'
 import pkg from '../../../../../package.json'
 
 function errMsg(err: unknown): string {
@@ -106,6 +144,39 @@ const appVersion = pkg.version
 const autoUpdate = ref(true)
 const apiKey = ref('')
 
+// ── 管理员模式 ──
+const adminPwdInput = ref('')
+const savedAdminPasswordHash = ref('')
+
+/** SHA256 哈希（Web Crypto API） */
+async function sha256(message: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(message)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function verifyAdmin() {
+  const input = adminPwdInput.value.trim()
+  if (!input) return
+
+  const inputHash = await sha256(input)
+  if (inputHash === savedAdminPasswordHash.value) {
+    adminUnlocked.value = true
+    adminPwdInput.value = ''
+    message.success('管理员模式已解锁')
+  } else {
+    message.error('密码错误，请重试')
+    adminPwdInput.value = ''
+  }
+}
+
+function lockAdmin() {
+  adminUnlocked.value = false
+  adminPwdInput.value = ''
+  message.info('管理员模式已锁定')
+}
+
 const settings = createSettingsRepository(window.lcuApi)
 
 // 每次对话框打开时重新加载设置
@@ -115,6 +186,9 @@ watch(() => props.show, async (visible) => {
     const s = await settings.load()
     autoUpdate.value = s.autoUpdate !== false
     apiKey.value = s.deepseekApiKey || ''
+    // 只读取管理员密码（其余 dashboard 配置仅主进程使用，不由前端暴露）
+    const dashCfg = (s as any).dashboard
+    savedAdminPasswordHash.value = dashCfg?.adminPasswordHash || ''
   } catch {
     // 使用默认值
   }

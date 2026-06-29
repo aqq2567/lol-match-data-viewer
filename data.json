@@ -1,0 +1,415 @@
+{
+  "meta": {
+    "round": "第1轮",
+    "mode": "海克斯大乱斗",
+    "playerCount": 10,
+    "updatedAt": "2026-06-27T19:31:09.964Z"
+  },
+  "metrics": {
+    "score": {
+      "label": "积分",
+      "icon": "🏆",
+      "color": "#ffd700",
+      "ranking": [
+        {
+          "name": "T1Zoee#87864",
+          "champion": "河流之王",
+          "value": 4,
+          "profileIconId": 7145
+        },
+        {
+          "name": "Keria丸丸子#81977",
+          "champion": "魔蛇之拥",
+          "value": 4,
+          "profileIconId": 5378
+        },
+        {
+          "name": "中国恭送六冠王#33460",
+          "champion": "不破之誓",
+          "value": 4,
+          "profileIconId": 7102
+        },
+        {
+          "name": "T1Booker#11327",
+          "champion": "法外狂徒",
+          "value": 3,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1丶0526#94011",
+          "champion": "北地之怒",
+          "value": 3,
+          "profileIconId": 7145
+        },
+        {
+          "name": "WEGIGABYTEZhuge#17301",
+          "champion": "曙光女神",
+          "value": 3,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1Focus#21387",
+          "champion": "诺克萨斯之手",
+          "value": 2,
+          "profileIconId": 3523
+        },
+        {
+          "name": "主 人#63236",
+          "champion": "深渊巨口",
+          "value": 1,
+          "profileIconId": 7147
+        },
+        {
+          "name": "李相赫大王#71137",
+          "champion": "含羞蓓蕾",
+          "value": 1,
+          "profileIconId": 10002
+        },
+        {
+          "name": "T1Owen#43909",
+          "champion": "战争女神",
+          "value": 0,
+          "profileIconId": 7146
+        }
+      ]
+    },
+    "mvp": {
+      "label": "MVP",
+      "icon": "⭐",
+      "color": "#ffd700",
+      "ranking": [
+        {
+          "name": "李相赫大王#71137",
+          "champion": "含羞蓓蕾",
+          "value": 0,
+          "profileIconId": 10002
+        },
+        {
+          "name": "中国恭送六冠王#33460",
+          "champion": "不破之誓",
+          "value": 0,
+          "profileIconId": 7102
+        },
+        {
+          "name": "主 人#63236",
+          "champion": "深渊巨口",
+          "value": 0,
+          "profileIconId": 7147
+        },
+        {
+          "name": "Keria丸丸子#81977",
+          "champion": "魔蛇之拥",
+          "value": 0,
+          "profileIconId": 5378
+        },
+        {
+          "name": "T1丶0526#94011",
+          "champion": "北地之怒",
+          "value": 0,
+          "profileIconId": 7145
+        },
+        {
+          "name": "T1Booker#11327",
+          "champion": "法外狂徒",
+          "value": 0,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1Focus#21387",
+          "champion": "诺克萨斯之手",
+          "value": 0,
+          "profileIconId": 3523
+        },
+        {
+          "name": "T1Owen#43909",
+          "champion": "战争女神",
+          "value": 0,
+          "profileIconId": 7146
+        },
+        {
+          "name": "T1Zoee#87864",
+          "champion": "河流之王",
+          "value": 0,
+          "profileIconId": 7145
+        },
+        {
+          "name": "WEGIGABYTEZhuge#17301",
+          "champion": "曙光女神",
+          "value": 0,
+          "profileIconId": 6936
+        }
+      ]
+    },
+    "kills": {
+      "label": "击杀",
+      "icon": "⚔️",
+      "color": "#ff4655",
+      "ranking": [
+        {
+          "name": "WEGIGABYTEZhuge#17301",
+          "champion": "曙光女神",
+          "value": 82,
+          "profileIconId": 6936,
+          "title": "死神降临"
+        },
+        {
+          "name": "中国恭送六冠王#33460",
+          "champion": "不破之誓",
+          "value": 80,
+          "profileIconId": 7102
+        },
+        {
+          "name": "T1Focus#21387",
+          "champion": "诺克萨斯之手",
+          "value": 64,
+          "profileIconId": 3523
+        },
+        {
+          "name": "T1Zoee#87864",
+          "champion": "河流之王",
+          "value": 57,
+          "profileIconId": 7145
+        },
+        {
+          "name": "主 人#63236",
+          "champion": "深渊巨口",
+          "value": 56,
+          "profileIconId": 7147
+        },
+        {
+          "name": "T1丶0526#94011",
+          "champion": "北地之怒",
+          "value": 52,
+          "profileIconId": 7145
+        },
+        {
+          "name": "T1Booker#11327",
+          "champion": "法外狂徒",
+          "value": 47,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1Owen#43909",
+          "champion": "战争女神",
+          "value": 45,
+          "profileIconId": 7146
+        },
+        {
+          "name": "李相赫大王#71137",
+          "champion": "含羞蓓蕾",
+          "value": 39,
+          "profileIconId": 10002
+        },
+        {
+          "name": "Keria丸丸子#81977",
+          "champion": "魔蛇之拥",
+          "value": 25,
+          "profileIconId": 5378
+        }
+      ]
+    },
+    "deaths": {
+      "label": "死亡",
+      "icon": "💀",
+      "color": "#888888",
+      "ranking": [
+        {
+          "name": "WEGIGABYTEZhuge#17301",
+          "champion": "曙光女神",
+          "value": 67,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1Owen#43909",
+          "champion": "战争女神",
+          "value": 64,
+          "profileIconId": 7146
+        },
+        {
+          "name": "T1Booker#11327",
+          "champion": "法外狂徒",
+          "value": 63,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1丶0526#94011",
+          "champion": "北地之怒",
+          "value": 63,
+          "profileIconId": 7145
+        },
+        {
+          "name": "主 人#63236",
+          "champion": "深渊巨口",
+          "value": 60,
+          "profileIconId": 7147
+        },
+        {
+          "name": "T1Focus#21387",
+          "champion": "诺克萨斯之手",
+          "value": 52,
+          "profileIconId": 3523
+        },
+        {
+          "name": "中国恭送六冠王#33460",
+          "champion": "不破之誓",
+          "value": 52,
+          "profileIconId": 7102
+        },
+        {
+          "name": "Keria丸丸子#81977",
+          "champion": "魔蛇之拥",
+          "value": 48,
+          "profileIconId": 5378
+        },
+        {
+          "name": "T1Zoee#87864",
+          "champion": "河流之王",
+          "value": 45,
+          "profileIconId": 7145
+        },
+        {
+          "name": "李相赫大王#71137",
+          "champion": "含羞蓓蕾",
+          "value": 39,
+          "profileIconId": 10002
+        }
+      ]
+    },
+    "kda": {
+      "label": "KDA",
+      "icon": "🎯",
+      "color": "#8b5cf6",
+      "ranking": [
+        {
+          "name": "李相赫大王#71137",
+          "champion": "含羞蓓蕾",
+          "value": 5.14,
+          "profileIconId": 10002,
+          "title": "不死之身"
+        },
+        {
+          "name": "T1Zoee#87864",
+          "champion": "河流之王",
+          "value": 4.95,
+          "profileIconId": 7145
+        },
+        {
+          "name": "中国恭送六冠王#33460",
+          "champion": "不破之誓",
+          "value": 4.2,
+          "profileIconId": 7102
+        },
+        {
+          "name": "Keria丸丸子#81977",
+          "champion": "魔蛇之拥",
+          "value": 3.94,
+          "profileIconId": 5378
+        },
+        {
+          "name": "T1Booker#11327",
+          "champion": "法外狂徒",
+          "value": 3.65,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1Focus#21387",
+          "champion": "诺克萨斯之手",
+          "value": 3.52,
+          "profileIconId": 3523
+        },
+        {
+          "name": "T1丶0526#94011",
+          "champion": "北地之怒",
+          "value": 3.41,
+          "profileIconId": 7145
+        },
+        {
+          "name": "主 人#63236",
+          "champion": "深渊巨口",
+          "value": 3.39,
+          "profileIconId": 7147
+        },
+        {
+          "name": "T1Owen#43909",
+          "champion": "战争女神",
+          "value": 3.06,
+          "profileIconId": 7146
+        },
+        {
+          "name": "WEGIGABYTEZhuge#17301",
+          "champion": "曙光女神",
+          "value": 2.64,
+          "profileIconId": 6936
+        }
+      ]
+    },
+    "damage": {
+      "label": "输出",
+      "icon": "🗡️",
+      "color": "#ff4655",
+      "ranking": [
+        {
+          "name": "中国恭送六冠王#33460",
+          "champion": "不破之誓",
+          "value": 256215,
+          "profileIconId": 7102,
+          "title": "输出机器"
+        },
+        {
+          "name": "WEGIGABYTEZhuge#17301",
+          "champion": "曙光女神",
+          "value": 255130,
+          "profileIconId": 6936
+        },
+        {
+          "name": "T1Zoee#87864",
+          "champion": "河流之王",
+          "value": 250814,
+          "profileIconId": 7145
+        },
+        {
+          "name": "T1Focus#21387",
+          "champion": "诺克萨斯之手",
+          "value": 234788,
+          "profileIconId": 3523
+        },
+        {
+          "name": "主 人#63236",
+          "champion": "深渊巨口",
+          "value": 229215,
+          "profileIconId": 7147
+        },
+        {
+          "name": "T1Owen#43909",
+          "champion": "战争女神",
+          "value": 217391,
+          "profileIconId": 7146
+        },
+        {
+          "name": "T1Booker#11327",
+          "champion": "法外狂徒",
+          "value": 194846,
+          "profileIconId": 6936
+        },
+        {
+          "name": "李相赫大王#71137",
+          "champion": "含羞蓓蕾",
+          "value": 186940,
+          "profileIconId": 10002
+        },
+        {
+          "name": "T1丶0526#94011",
+          "champion": "北地之怒",
+          "value": 170874,
+          "profileIconId": 7145
+        },
+        {
+          "name": "Keria丸丸子#81977",
+          "champion": "魔蛇之拥",
+          "value": 101202,
+          "profileIconId": 5378
+        }
+      ]
+    }
+  }
+}

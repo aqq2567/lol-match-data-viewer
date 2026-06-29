@@ -30,6 +30,18 @@
         @update:only-teammates="onlyTeammates = $event"
       />
 
+      <div v-if="result && result.gameCount > 0 && adminUnlocked" style="text-align:right;margin-bottom:8px">
+        <n-button
+          type="primary"
+          size="small"
+          :loading="publishLoading"
+          @click="handleExportAndPublish"
+        >
+          <template #icon><n-icon><cloud-upload-outline /></n-icon></template>
+          📤 发布比赛数据
+        </n-button>
+      </div>
+
       <div class="analysis-body">
         <MetricSidebar
           :basic-metrics="basicMetrics"
@@ -112,7 +124,7 @@
 import { computed, onActivated, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NIcon, NSpin, useMessage } from 'naive-ui'
-import { AnalyticsOutline, ListOutline } from '@vicons/ionicons5'
+import { AnalyticsOutline, ListOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import type { GameRecord, AnalysisResult } from '@shared/types'
 import ChatPanel from '@/components/chat/ChatPanel.vue'
 import AnalysisHeader from '@/components/analysis/AnalysisHeader.vue'
@@ -124,8 +136,10 @@ import AugmentDetail from '@/components/analysis/AugmentDetail.vue'
 import ItemDetail from '@/components/analysis/ItemDetail.vue'
 import ChampionPoolDetail from '@/components/analysis/ChampionPoolDetail.vue'
 import { getModeAnalysisConfig, type MetricDef } from '@shared/utils/mode-analysis-config'
+import { exportDashboardData } from '@shared/utils/dashboard-exporter'
 import { useGameDataStore } from '@/stores/game-data'
 import { useAnalysisBridge } from '@/stores/analysis-bridge'
+import { adminUnlocked } from '@/stores/admin-mode'
 import { rateDisplay } from '@/utils/format'
 import { computeTableMaxHeight } from '@/utils/display'
 import type {
@@ -161,6 +175,54 @@ function errMsg(err: unknown): string {
 const router = useRouter()
 const message = useMessage()
 const gds = useGameDataStore()
+
+// ── 比赛看板导出 + 发布 ──
+const publishLoading = ref(false)
+
+async function handleExportAndPublish() {
+  if (!analysisGames.value || analysisGames.value.length === 0) {
+    message.warning('请先勾选至少一场对局')
+    return
+  }
+  publishLoading.value = true
+  try {
+    // Step 1: 读取用户设置的轮次名称
+    let roundName = '第1轮'
+    try {
+      const settings = await window.lcuApi.getSettings()
+      roundName = settings?.dashboard?.round || '第1轮'
+    } catch { /* settings read failed, use default */ }
+
+    // Step 2: 构建 champion ID → 名称映射（从 GameDataCache）
+    const championNameMap: Record<number, string> = {}
+    for (const [id, champ] of Object.entries(gds.champions)) {
+      if (champ?.name) championNameMap[Number(id)] = champ.name
+    }
+
+    // Step 3: 渲染进程本地计算 DashboardData（纯函数，冬天杯4.0格式）
+    const dashboardData = exportDashboardData(
+      analysisGames.value,
+      undefined,
+      {
+        round: roundName,
+        gameMode: modeDisplayName.value,
+        championNameMap,
+      },
+    )
+
+    // Step 2: 通过 IPC 发布到 GitHub Pages（唯一跨进程调用）
+    const publishResp = await window.lcuApi.publishDashboard(dashboardData)
+    if (publishResp.status === 'success') {
+      message.success(`发布成功！看板地址: ${publishResp.url}`)
+    } else {
+      message.error(`发布失败: ${publishResp.message}`)
+    }
+  } catch (err: unknown) {
+    message.error(`操作失败: ${err instanceof Error ? err.message : String(err)}`)
+  } finally {
+    publishLoading.value = false
+  }
+}
 const bridge = useAnalysisBridge()
 
 const loading = ref(false)

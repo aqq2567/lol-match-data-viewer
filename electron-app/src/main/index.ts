@@ -17,6 +17,8 @@ import { registerLcuHandlers } from './ipc/lcu-handlers'
 import { chatWithLLM } from './utils/llm'
 import { registerLcuAssetProtocol } from './lcu/asset-proxy'
 import { initDb, closeDb } from './db/database'
+import { publishDashboard } from '@main/publish/github-publisher'
+import type { DashboardData } from '@shared/types'
 
 // ═══════════════════════════════════════════════════════════
 // 全局日志拦截 —— 所有 console.log/warn/error 同时写入文件
@@ -170,7 +172,31 @@ ipcMain.handle('settings:get', async () => {
 })
 
 ipcMain.handle('settings:set', async (_event, key: string, value: any) => {
+  // 防护：前端任何时候都不能修改 adminPasswordHash（只能由管理员手动编辑 settings.json）
+  if (key === 'dashboard' && value && typeof value === 'object') {
+    const existing = getSettings().dashboard
+    if (existing?.adminPasswordHash) {
+      value.adminPasswordHash = existing.adminPasswordHash
+    } else {
+      delete value.adminPasswordHash
+    }
+  }
   setSetting(key, value)
+})
+
+// ═══ 比赛看板发布 ═══
+
+ipcMain.handle('publish:dashboard', async (_event, data: DashboardData) => {
+  try {
+    console.log(`[DASHBOARD] publish:dashboard — round="${data.meta?.round || '?'}", ${Object.keys(data.metrics || {}).length} metrics`)
+    const url = await publishDashboard(data)
+    console.log(`[DASHBOARD] 发布成功: ${url}`)
+    return { status: 'success', url }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[DASHBOARD] 发布失败: ${msg}`)
+    return { status: 'error', message: msg }
+  }
 })
 
 // 打开日志目录

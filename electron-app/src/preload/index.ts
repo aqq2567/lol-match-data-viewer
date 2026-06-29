@@ -3,7 +3,7 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
-import type { LcuConnectionInfo, MatchData, MatchListData, GameRecord, GameDataCache, LcuSummoner } from '@shared/types'
+import type { LcuConnectionInfo, MatchData, MatchListData, GameRecord, GameDataCache, LcuSummoner, DashboardData } from '@shared/types'
 
 const api = {
   /** 向主进程发送日志（渲染进程专用），主进程会写入日志文件 */
@@ -142,6 +142,11 @@ const api = {
   /** SGP: 销毁 SGP 通道 */
   sgpDestroy(): Promise<void> {
     return ipcRenderer.invoke('sgp:destroy')
+  },
+
+  /** 发布比赛看板到 GitHub Pages */
+  publishDashboard(data: DashboardData): Promise<{ status: string; url?: string; message?: string }> {
+    return ipcRenderer.invoke('publish:dashboard', data)
   },
 }
 

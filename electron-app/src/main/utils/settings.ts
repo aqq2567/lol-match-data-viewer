@@ -8,9 +8,18 @@ import { join } from 'path'
 
 const SETTINGS_FILE = 'settings.json'
 
+interface DashboardConfig {
+  ghUser: string       // GitHub 用户名
+  ghRepo: string       // 仓库名
+  ghToken: string      // Personal Access Token (public_repo 权限)
+  round: string        // 轮次名称，默认 "第1轮"
+  adminPasswordHash: string // 管理员密码 SHA256 哈希（前端只读，不可通过 IPC 修改）
+}
+
 interface UserSettings {
   autoUpdate: boolean
   deepseekApiKey?: string
+  dashboard?: DashboardConfig  // 新增：比赛看板发布配置
 }
 
 let _cache: UserSettings | null = null
@@ -38,7 +47,16 @@ export function getSettings(): UserSettings {
     console.warn(`[SETTINGS] 读取配置文件失败: ${err}`)
   }
   if (!_cache) {
-    _cache = { autoUpdate: true }
+    _cache = {
+      autoUpdate: true,
+      dashboard: {
+        ghUser: '',
+        ghRepo: '',
+        ghToken: '',
+        round: '第1轮',
+        adminPasswordHash: '',
+      },
+    }
     saveSettings()
   }
   return _cache

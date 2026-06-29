@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "round": "冬天杯4.0",
+    "mode": "召唤师峡谷",
+    "playerCount": 12,
+    "updatedAt": "2026-06-28T00:00:00Z"
+  },
+  "metrics": {
+    "score": {
+      "label": "积分",
+      "icon": "🏆",
+      "color": "#ffd700",
+      "ranking": [
+        { "name": "选手A", "champion": "亚索", "profileIconId": 1, "value": 9 },
+        { "name": "选手B", "champion": "盲僧", "profileIconId": 2, "value": 7 },
+        { "name": "选手C", "champion": "发条", "profileIconId": 3, "value": 6 },
+        { "name": "选手D", "champion": "金克斯", "profileIconId": 4, "value": 5 },
+        { "name": "选手E", "champion": "蕾欧娜", "profileIconId": 5, "value": 5 },
+        { "name": "选手F", "champion": "剑姬", "profileIconId": 6, "value": 4 },
+        { "name": "选手G", "champion": "蜘蛛", "profileIconId": 7, "value": 4 },
+        { "name": "选手H", "champion": "维克托", "profileIconId": 8, "value": 3 },
+        { "name": "选手I", "champion": "劫", "profileIconId": 9, "value": 3 },
+        { "name": "选手J", "champion": "阿卡丽", "profileIconId": 10, "value": 2 },
+        { "name": "选手K", "champion": "EZ", "profileIconId": 11, "value": 2 },
+        { "name": "选手L", "champion": "卡莎", "profileIconId": 12, "value": 1 }
+      ]
+    },
+    "mvp": {
+      "label": "MVP",
+      "icon": "⭐",
+      "color": "#ffd700",
+      "ranking": [
+        { "name": "选手A", "champion": "亚索", "profileIconId": 1, "value": 0 },
+        { "name": "选手B", "champion": "盲僧", "profileIconId": 2, "value": 0 },
+        { "name": "选手C", "champion": "发条", "profileIconId": 3, "value": 0 },
+        { "name": "选手D", "champion": "金克斯", "profileIconId": 4, "value": 0 },
+        { "name": "选手E", "champion": "蕾欧娜", "profileIconId": 5, "value": 0 },
+        { "name": "选手F", "champion": "剑姬", "profileIconId": 6, "value": 0 },
+        { "name": "选手G", "champion": "蜘蛛", "profileIconId": 7, "value": 0 },
+        { "name": "选手H", "champion": "维克托", "profileIconId": 8, "value": 0 },
+        { "name": "选手I", "champion": "劫", "profileIconId": 9, "value": 0 },
+        { "name": "选手J", "champion": "阿卡丽", "profileIconId": 10, "value": 0 },
+        { "name": "选手K", "champion": "EZ", "profileIconId": 11, "value": 0 },
+        { "name": "选手L", "champion": "卡莎", "profileIconId": 12, "value": 0 }
+      ]
+    },
+    "kills": {
+      "label": "击杀",
+      "icon": "⚔️",
+      "color": "#ff4655",
+      "ranking": [
+        { "name": "选手A", "champion": "亚索", "profileIconId": 1, "value": 32 },
+        { "name": "选手B", "champion": "盲僧", "profileIconId": 2, "value": 28 },
+        { "name": "选手D", "champion": "金克斯", "profileIconId": 4, "value": 25 },
+        { "name": "选手C", "champion": "发条", "profileIconId": 3, "value": 22 },
+        { "name": "选手F", "champion": "剑姬", "profileIconId": 6, "value": 20 },
+        { "name": "选手E", "champion": "蕾欧娜", "profileIconId": 5, "value": 18 },
+        { "name": "选手G", "champion": "蜘蛛", "profileIconId": 7, "value": 16 },
+        { "name": "选手H", "champion": "维克托", "profileIconId": 8, "value": 14 },
+        { "name": "选手I", "champion": "劫", "profileIconId": 9, "value": 12 },
+        { "name": "选手J", "champion": "阿卡丽", "profileIconId": 10, "value": 10 },
+        { "name": "选手K", "champion": "EZ", "profileIconId": 11, "value": 8 },
+        { "name": "选手L", "champion": "卡莎", "profileIconId": 12, "value": 6 }
+      ]
+    },
+    "deaths": {
+      "label": "死亡",
+      "icon": "💀",
+      "color": "#888888",
+      "ranking": [
+        { "name": "选手L", "champion": "卡莎", "profileIconId": 12, "value": 18 },
+        { "name": "选手K", "champion": "EZ", "profileIconId": 11, "value": 16 },
+        { "name": "选手J", "champion": "阿卡丽", "profileIconId": 10, "value": 15 },
+        { "name": "选手I", "champion": "劫", "profileIconId": 9, "value": 14 },
+        { "name": "选手H", "champion": "维克托", "profileIconId": 8, "value": 12 },
+        { "name": "选手G", "champion": "蜘蛛", "profileIconId": 7, "value": 11 },
+        { "name": "选手F", "champion": "剑姬", "profileIconId": 6, "value": 10 },
+        { "name": "选手E", "champion": "蕾欧娜", "profileIconId": 5, "value": 9 },
+        { "name": "选手D", "champion": "金克斯", "profileIconId": 4, "value": 8 },
+        { "name": "选手C", "champion": "发条", "profileIconId": 3, "value": 7 },
+        { "name": "选手B", "champion": "盲僧", "profileIconId": 2, "value": 6 },
+        { "name": "选手A", "champion": "亚索", "profileIconId": 1, "value": 4 }
+      ]
+    },
+    "kda": {
+      "label": "KDA",
+      "icon": "🎯",
+      "color": "#8b5cf6",
+      "ranking": [
+        { "name": "选手A", "champion": "亚索", "profileIconId": 1, "value": 9.2 },
+        { "name": "选手C", "champion": "发条", "profileIconId": 3, "value": 6.8 },
+        { "name": "选手B", "champion": "盲僧", "profileIconId": 2, "value": 5.5 },
+        { "name": "选手D", "champion": "金克斯", "profileIconId": 4, "value": 4.7 },
+        { "name": "选手F", "champion": "剑姬", "profileIconId": 6, "value": 3.9 },
+        { "name": "选手E", "champion": "蕾欧娜", "profileIconId": 5, "value": 3.2 },
+        { "name": "选手G", "champion": "蜘蛛", "profileIconId": 7, "value": 2.8 },
+        { "name": "选手H", "champion": "维克托", "profileIconId": 8, "value": 2.4 },
+        { "name": "选手I", "champion": "劫", "profileIconId": 9, "value": 2.1 },
+        { "name": "选手J", "champion": "阿卡丽", "profileIconId": 10, "value": 1.8 },
+        { "name": "选手K", "champion": "EZ", "profileIconId": 11, "value": 1.3 },
+        { "name": "选手L", "champion": "卡莎", "profileIconId": 12, "value": 0.7 }
+      ]
+    },
+    "damage": {
+      "label": "输出",
+      "icon": "🗡️",
+      "color": "#ff4655",
+      "ranking": [
+        { "name": "选手A", "champion": "亚索", "profileIconId": 1, "value": 52000 },
+        { "name": "选手D", "champion": "金克斯", "profileIconId": 4, "value": 48500 },
+        { "name": "选手C", "champion": "发条", "profileIconId": 3, "value": 42100 },
+        { "name": "选手B", "champion": "盲僧", "profileIconId": 2, "value": 38000 },
+        { "name": "选手F", "champion": "剑姬", "profileIconId": 6, "value": 34000 },
+        { "name": "选手H", "champion": "维克托", "profileIconId": 8, "value": 31000 },
+        { "name": "选手E", "champion": "蕾欧娜", "profileIconId": 5, "value": 28000 },
+        { "name": "选手G", "champion": "蜘蛛", "profileIconId": 7, "value": 25000 },
+        { "name": "选手I", "champion": "劫", "profileIconId": 9, "value": 22000 },
+        { "name": "选手J", "champion": "阿卡丽", "profileIconId": 10, "value": 18000 },
+        { "name": "选手K", "champion": "EZ", "profileIconId": 11, "value": 15000 },
+        { "name": "选手L", "champion": "卡莎", "profileIconId": 12, "value": 12000 }
+      ]
+    }
+  }
+}

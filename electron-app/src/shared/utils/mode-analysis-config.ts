@@ -93,7 +93,7 @@ const ALL_ADVANCED_METRICS: MetricDef[] = [
   { key: 'enemyMissingPings', label: '敌人消失信号', colorClass: 'cat-blue', getter: (s) => s.pings.enemy_missing, fmt: (v) => String(Math.round(v)) },
 ]
 
-const DEFAULT_PODIUM_TITLES: Record<string, string> = {
+export const DEFAULT_PODIUM_TITLES: Record<string, string> = {
   deaths: '无暇赴死',
   assists: '我K不到啊',
   damage: '我真尽力了',
